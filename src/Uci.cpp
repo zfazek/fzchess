@@ -53,6 +53,9 @@ void Uci::position_received(const char *input) {
         printf("option name MultiPV type spin default 1 min 1 max 1\n");
         printf("uciok\n");
         Util::flush();
+    } else if (strstr(cmd, "isready")) {
+        printf("readyok\n");
+        Util::flush();
     }
     while (true) {
         char *ret = fgets(input, 1000, stdin);

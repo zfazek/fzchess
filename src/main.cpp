@@ -327,10 +327,7 @@ int main(int argc, char *argv[]) {
             if (ret) {
                 if (strstr(input, "quit")) {
                     exit(EXIT_SUCCESS);
-                } else if (strstr(input, "isready")) {
-                    printf("readyok\n");
-                    Util::flush();
-                } else if (strstr(input, "uci")) {
+                } else if (strstr(input, "uci") || strstr(input, "isready")) {
                     break;
                 }
             }
