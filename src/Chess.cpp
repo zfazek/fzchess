@@ -45,11 +45,11 @@ void Chess::make_move() {
     for (;;) {
         // Calculate summa of material for end game threshold
         // sm = table->eval->sum_material(player_to_move);
-//        if (depth > 4) {
-//            seldepth = depth + 4;
-//        } else {
+        //        if (depth > 4) {
+        //            seldepth = depth + 4;
+        //        } else {
         seldepth = depth + default_seldepth;
-//        printf("%d %d\n", depth, seldepth);
+        //        printf("%d %d\n", depth, seldepth);
         Util::flush();
 
         // Calculates the time of the move
@@ -80,22 +80,22 @@ void Chess::make_move() {
             stop_search = true;
         }
         time_elapsed = Util::get_ms() - start_time;
-        printf("info depth %d seldepth %d time %llu nodes %llu nps %llu\n",
+        printf("info depth %d seldepth %d time %lu nodes %lu nps %lu\n",
                depth,
                seldepth,
                time_elapsed,
                nodes,
                (time_elapsed == 0) ? 0 : (uint64_t)((1000.0 * nodes / time_elapsed)));
         Util::flush();
-        calculate_evarray_new();
-        for (int i = 0; i < nof_legal_root_moves; i++) {
-            printf("(%s:%d) ", Util::move2str(root_moves[i].move),
-                   root_moves[i].value);
-            if (i % 8 == 7) {
-                puts("");
-            }
-        }
-        puts("");
+        // calculate_evarray_new();
+        // for (int i = 0; i < nof_legal_root_moves; i++) {
+        //     printf("(%s:%d) ", Util::move2str(root_moves[i].move),
+        //            root_moves[i].value);
+        //     if (i % 8 == 7) {
+        //         puts("");
+        //     }
+        // }
+        // puts("");
         // Prints statistics
         // printf("alfabeta: %d\n", a);Util::flush();
         // printf("best %s\n", best_move);Util::flush();
@@ -133,9 +133,9 @@ int Chess::alfabeta(int dpt, int alfa, int beta) {
     table->list_legal_moves();
     if (legal_pointer == -1) {
         if (!table->is_attacked(player_to_move == WHITE
-                                   ? (movelist + move_number)->pos_white_king
-                                   : (movelist + move_number)->pos_black_king,
-                               player_to_move)) {
+                                    ? (movelist + move_number)->pos_white_king
+                                    : (movelist + move_number)->pos_black_king,
+                                player_to_move)) {
             // printf("DRAW: ");Util::flush();
             return table->eval->DRAW;
         } else {
@@ -239,7 +239,7 @@ int Chess::alfabeta(int dpt, int alfa, int beta) {
                     if (uu == 0 && u < 0) {
                         uu = -1;
                     }
-                    printf("info multipv 1 depth %d seldepth %d time %llu score mate %d nodes %llu pv ",
+                    printf("info multipv 1 depth %d seldepth %d time %lu score mate %d nodes %lu pv ",
                            curr_depth, curr_seldepth, time_elapsed, uu, nodes);
                     for (int b = 1; b <= best_line[dpt].length; ++b) {
                         printf("%s ", Util::move2str(best_line[dpt].moves[b]));
@@ -248,7 +248,7 @@ int Chess::alfabeta(int dpt, int alfa, int beta) {
                     Util::flush();
                     mate_score = abs(u);
                 } else {
-                    printf("info multipv 1 depth %d seldepth %d time %llu score cp %d nodes %llu pv ",
+                    printf("info multipv 1 depth %d seldepth %d time %lu score cp %d nodes %lu pv ",
                            curr_depth, curr_seldepth, time_elapsed, u, nodes);
                     for (int b = 1; b <= best_line[dpt].length; ++b) {
                         printf("%s ", Util::move2str(best_line[dpt].moves[b]));
@@ -374,12 +374,12 @@ void Chess::calculate_evarray_new() {
 void Chess::checkup() {
     if ((max_time != 0 && Util::get_ms() >= stop_time) || stop_received) {
         stop_search = true;
-    throw 1;
+        throw 1;
     }
 }
 
 void Chess::processCommands(const char *input) const {
-    if (strstr(input, "uci")) {
+    if (strstr(input, "uci") || strstr(input, "isready")) {
         uci->processCommands(input);
     }
 }

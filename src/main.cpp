@@ -1,5 +1,6 @@
 #include <cassert>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 #include "Chess.h"
@@ -87,7 +88,7 @@ void test_perft() {
     }
     {
         const char input[] = "position fen "
-            "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -";
+                             "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -";
         const uint64_t expected_nodes[] = {14, 191, 2812, 43238, 674624};
         test_perft_pos(input, 5, expected_nodes);
     }
@@ -207,8 +208,8 @@ void test_bratko_kopec_2() {
 
 void test_bratko_kopec_10() {
     const char input[] = "position fen "
-                   "3rr1k1/pp3pp1/1qn2np1/8/3p4/PP1R1P2/2P1NQPP/R1B3K1 b - - 0 "
-                   "1 bm Ne5; id BK.10;";
+        "3rr1k1/pp3pp1/1qn2np1/8/3p4/PP1R1P2/2P1NQPP/R1B3K1 b - - 0 "
+        "1 bm Ne5; id BK.10;";
     puts(input);
     Chess chess;
     chess.start_game();
@@ -323,8 +324,15 @@ int main(int argc, char *argv[]) {
         char input[1001];
         while (true) {
             ret = fgets(input, 1000, stdin);
-            if (ret && strstr(input, "uci")) {
-                break;
+            if (ret) {
+                if (strstr(input, "quit")) {
+                    exit(EXIT_SUCCESS);
+                } else if (strstr(input, "isready")) {
+                    printf("readyok\n");
+                    Util::flush();
+                } else if (strstr(input, "uci")) {
+                    break;
+                }
             }
         }
         Chess chess;

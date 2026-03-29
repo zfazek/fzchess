@@ -1,6 +1,7 @@
 #include "Uci.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 #include "Chess.h"
@@ -55,6 +56,9 @@ void Uci::position_received(const char *input) {
     }
     while (true) {
         char *ret = fgets(input, 1000, stdin);
+        if (ret && strstr(input, "quit")) {
+            exit(EXIT_SUCCESS);
+        }
         if (ret && strstr(input, "stop")) {
             chess->stop_received = true;
         }
