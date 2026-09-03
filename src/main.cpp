@@ -96,7 +96,7 @@ void test_perft() {
         const char input[] = "position fen "
             "r2q1rk1/pP1p2pp/Q4n2/bbp1p3/Np6/1B3NBn/pPPP1PPP/R3K2R b KQ - 0 1";
         const uint64_t expected_nodes[] = {6, 264, 9467, 422333, 15833292};
-        test_perft_pos(input, 4, expected_nodes);
+        test_perft_pos(input, 5, expected_nodes);
     }
 }
 

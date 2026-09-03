@@ -48,7 +48,7 @@ void Uci::position_received(const char *input) {
     if (strstr(cmd, "uci")) {
         printf("id name FZChess++\n");
         printf("id author Zoltan FAZEKAS\n");
-        printf("option name OwnBook type check defult false\n");
+        printf("option name OwnBook type check default false\n");
         printf("option name Ponder type check default false\n");
         printf("option name MultiPV type spin default 1 min 1 max 1\n");
         printf("uciok\n");
