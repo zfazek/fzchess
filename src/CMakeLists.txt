@@ -6,4 +6,8 @@ add_executable(fzchess
     Table.cpp
     Uci.cpp
     Util.cpp
+    pg_key.c
+    pg_key.h
+    pg_show.c
+    pg_show.h
 )

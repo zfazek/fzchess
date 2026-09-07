@@ -1,4 +1,6 @@
 build
 tags
 fzchess
+.vscode
 .aider*
+*.bin
