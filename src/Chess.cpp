@@ -449,12 +449,39 @@ uint64_t Chess::perft(const int dpt) {
 }
 
 void Chess::sort_legal_moves(const int nbr_legal, const int dpt) {
+    (void)dpt; // no longer needed: MVV-LVA is a static ordering (no search/eval)
+    // MVV-LVA (Most Valuable Victim - Least Valuable Attacker) ordering.
+    // Captures are scored by the captured piece's value (prefer taking big pieces)
+    // minus a fraction of the capturing piece's value (prefer using small pieces),
+    // and ranked ahead of all quiet moves. Promotions add the promoted piece value.
+    // This is computed statically from the board — no make/unmake, no evaluation.
     for (int i = 0; i < nbr_legal; i++) {
         const int move = legal_moves[i];
-        table->update_table(move, false);
-        const int u = table->eval->evaluation_material(dpt);
-        sorted_legal_moves[i] = {move, u};
-        table->unmake_table();
+        const int x_from = (move & 0xe000) >> 13;
+        const int y_from = (move & 0x1c00) >> 10;
+        const int x_to   = (move & 0x00e0) >> 5;
+        const int y_to   = (move & 0x001c) >> 2;
+        const int sq_from = 1 + x_from + (y_from + 2) * 10;
+        const int sq_to   = 1 + x_to + (y_to + 2) * 10;
+
+        const int victim   = board[sq_to] & 127;    // 0 if empty (quiet move)
+        const int attacker = board[sq_from] & 127;
+
+        int score = 0;
+        if (victim != 0) {
+            // Capture: big victim, small attacker ranks highest. +100000 keeps all
+            // captures ahead of all quiet moves.
+            score = 100000 + Table::piece_value[victim] * 16 - Table::piece_value[attacker];
+        }
+        // Promotion bonus (move encodes promotion in bits 0x0303).
+        if ((move & 0x0303) != 0) {
+            int promo_val = Table::piece_value[5]; // default queen
+            if ((move & 0x0100) == 0x0100) promo_val = Table::piece_value[4]; // rook
+            else if ((move & 0x0002) == 0x0002) promo_val = Table::piece_value[3]; // bishop
+            else if ((move & 0x0001) == 0x0001) promo_val = Table::piece_value[2]; // knight
+            score += 100000 + promo_val;
+        }
+        sorted_legal_moves[i] = {move, score};
     }
     std::sort(sorted_legal_moves, sorted_legal_moves + nbr_legal);
     for (int i = 0; i < nbr_legal; i++) {
