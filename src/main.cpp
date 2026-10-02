@@ -149,7 +149,7 @@ void test_bratko_kopec_1() {
     chess.default_seldepth = 0;
     chess.break_if_mate_found = false; // remove
     chess.make_move();
-    assert(strcmp(Util::move2str(chess.best_move), "d6d1 ") == 0);
+    assert(strcmp(Util::move2str(chess.best_move), "d6d1") == 0);
     assert(chess.mate_score == 21995);
     assert(chess.root_moves[0].value == 21995);
 }
@@ -166,7 +166,7 @@ void test_bratko_kopec_1a() {
     chess.gui_depth = 6;
     chess.default_seldepth = 0;
     chess.make_move();
-    assert(strcmp(Util::move2str(chess.best_move), "d6d1 ") == 0);
+    assert(strcmp(Util::move2str(chess.best_move), "d6d1") == 0);
     assert(chess.mate_score == 21995);
     assert(chess.root_moves[0].value == 21995);
     assert(chess.depth == 5);
@@ -183,7 +183,7 @@ void test_bratko_kopec_1b() {
     chess.max_time = 0;
     chess.gui_depth = 1;
     chess.make_move();
-    assert(strcmp(Util::move2str(chess.best_move), "d6d1 ") == 0);
+    assert(strcmp(Util::move2str(chess.best_move), "d6d1") == 0);
     assert(chess.mate_score == 21995);
     assert(chess.root_moves[0].value == 21995);
     assert(chess.depth == 1);
@@ -201,7 +201,7 @@ void test_bratko_kopec_2() {
     chess.max_time = 0;
     chess.gui_depth = 5;
     chess.make_move();
-    assert(strcmp(Util::move2str(chess.best_move), "d4d5 ") == 0);
+    assert(strcmp(Util::move2str(chess.best_move), "d4d5") == 0);
 }
 
 void test_bratko_kopec_10() {
@@ -215,7 +215,7 @@ void test_bratko_kopec_10() {
     chess.max_time = 0;
     chess.gui_depth = 5;
     chess.make_move();
-    assert(strcmp(Util::move2str(chess.best_move), "c6e5 ") == 0);
+    assert(strcmp(Util::move2str(chess.best_move), "c6e5") == 0);
 }
 
 void test_bratko_kopec_12() {
@@ -229,7 +229,7 @@ void test_bratko_kopec_12() {
     chess.max_time = 0;
     chess.gui_depth = 2;
     chess.make_move();
-    assert(strcmp(Util::move2str(chess.best_move), "d7f5 ") == 0);
+    assert(strcmp(Util::move2str(chess.best_move), "d7f5") == 0);
 }
 
 void test_bratko_kopec() {

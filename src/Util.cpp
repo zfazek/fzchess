@@ -45,7 +45,9 @@ int Util::str2move(const char move_old[6]) {
 }
 
 char *Util::move2str(const int move) {
-    static char move_str[] = "     ";
+    // Returns the move in coordinate notation with no trailing space:
+    //   normal moves are 4 chars ("e2e4"), promotions are 5 ("e7e8q").
+    static char move_str[] = "      ";
     move_str[0] = (move & 0xe000) / 256 / 32 + 'a';
     move_str[1] = (move & 0x1c00) / 256 / 4 + '1';
     move_str[2] = (move & 0x00e0) % 256 / 32 + 'a';
@@ -60,8 +62,9 @@ char *Util::move2str(const int move) {
         } else if ((move & 0x0001) == 0x0001) {
             move_str[4] = 'n';
         }
+        move_str[5] = '\0';
     } else {
-        move_str[4] = ' ';
+        move_str[4] = '\0';
     }
     return move_str;
 }
