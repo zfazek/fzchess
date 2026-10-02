@@ -118,6 +118,10 @@ void Chess::make_move() {
     nodes = 0;
     table->eval->tt_nodes = 0;
     ++search_age; // invalidates TT entries from the previous search
+    for (int p = 0; p < MAX_PLY; ++p) {
+        killer_moves[p][0] = 0;
+        killer_moves[p][1] = 0;
+    }
     start_time = Util::get_ms();
     stop_time = start_time + max_time;
     depth = 1;
@@ -187,6 +191,16 @@ void Chess::make_move() {
                nodes,
                (time_elapsed == 0) ? 0 : (uint64_t)((1000.0 * nodes / time_elapsed)));
         Util::flush();
+        // Human-readable time-to-depth: time to complete this iteration and the
+        // cumulative time to reach this depth. This reflects search efficiency far
+        // better than raw NPS (good move ordering lowers nodes, which lowers NPS but
+        // shortens time-to-depth).
+        {
+            const uint64_t this_depth_ms = time_current_depth_stop - time_current_depth_start;
+            printf("time-to-depth: depth %d | this iter %lu ms | cumulative %lu ms\n",
+                   depth, this_depth_ms, time_elapsed);
+            Util::flush();
+        }
         // calculate_evarray_new();
         // for (int i = 0; i < nof_legal_root_moves; i++) {
         //     printf("(%s:%d) ", Util::move2str(root_moves[i].move),
@@ -261,6 +275,26 @@ int Chess::alfabeta(int dpt, int alfa, int beta) {
         }
         for (int i = 0; i < nbr_legal; ++i) {
             alfarray[i] = legal_moves[i];
+        }
+        // Killer-move ordering: pull the two killer moves for this ply toward the
+        // front (just after any already-prioritised moves) so they are tried early.
+        if (dpt < MAX_PLY) {
+            int front = 0;
+            for (int kslot = 0; kslot < 2; ++kslot) {
+                const int km = killer_moves[dpt][kslot];
+                if (km == 0) continue;
+                for (int i = front; i < nbr_legal; ++i) {
+                    if (alfarray[i] == km) {
+                        if (i != front) {
+                            const int tmp = alfarray[front];
+                            alfarray[front] = alfarray[i];
+                            alfarray[i] = tmp;
+                        }
+                        ++front;
+                        break;
+                    }
+                }
+            }
         }
     }
 
@@ -366,6 +400,18 @@ int Chess::alfabeta(int dpt, int alfa, int beta) {
 
         // Alfa Beta cut-off
         if (value >= beta) {
+            // Record a killer move: a quiet (non-capturing) move that caused a cutoff.
+            // The move was already unmade, so the board holds the pre-move position;
+            // a capture has an enemy piece on the destination square.
+            const int km = alfarray[i];
+            const int x_to = (km & 0x00e0) >> 5;
+            const int y_to = (km & 0x001c) >> 2;
+            const int sq_to = 1 + x_to + (y_to + 2) * 10;
+            const bool is_capture = (board[sq_to] != 0 /*EMPTY*/ && board[sq_to] != 0xff /*OFFBOARD*/);
+            if (!is_capture && dpt < MAX_PLY && killer_moves[dpt][0] != km) {
+                killer_moves[dpt][1] = killer_moves[dpt][0];
+                killer_moves[dpt][0] = km;
+            }
             return value;
         }
         if (value > alfa) {

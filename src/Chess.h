@@ -150,6 +150,11 @@ public:
     void checkup();
     void sort_legal_moves(const int nbr_legal, const int dpt);
 
+    // Killer moves: two quiet moves per ply that caused a beta cutoff in a sibling.
+    // Trying them early yields more cutoffs. Indexed by search ply (dpt).
+    static constexpr int MAX_PLY = 128;
+    int killer_moves[MAX_PLY][2];
+
     // Array of best line
     int curr_line[MAX_LEGAL_MOVES];
 
