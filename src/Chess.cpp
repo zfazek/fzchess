@@ -3,9 +3,12 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 #include "Eval.h"
 #include "Util.h"
+
+using std::string;
 
 struct best_lines {
     int length;
@@ -42,6 +45,9 @@ void Chess::make_move() {
     stop_time = start_time + max_time;
     depth = 1;
     stop_search = false;
+    const string fen = get_fen(move_number).c_str();
+    printf("FEN: %s\n", get_fen(move_number).c_str());
+    Util::flush();
     for (;;) {
         // Calculate summa of material for end game threshold
         // sm = table->eval->sum_material(player_to_move);
@@ -370,6 +376,97 @@ void Chess::calculate_evarray_new() {
     }
 }
 */
+
+// Returns the FEN string for the position stored in tablelist[movenumber] / movelist[movenumber].
+// The side to move is inferred from movelist[movenumber].color (the side that just moved),
+// so the side to move in the FEN is the opposite. At move_number==0 (start), color==0,
+// so we use player_to_move instead for safety.
+std::string Chess::get_fen(const int movenumber) const {
+    // Piece characters indexed by piece value (0x00..0x06 white, 0x81..0x86 black)
+    // WhitePawn=1,Knight=2,Bishop=3,Rook=4,Queen=5,King=6
+    // BlackPawn=0x81, etc.
+    static const char white_piece_char[7] = {'.', 'P', 'N', 'B', 'R', 'Q', 'K'};
+    static const char black_piece_char[7] = {'.', 'p', 'n', 'b', 'r', 'q', 'k'};
+
+    const int *board = tablelist[movenumber];
+    const struct position_t &pos = movelist[movenumber];
+
+    std::string fen;
+
+    // 1. Piece placement: rank 8 (y=9) down to rank 1 (y=2), files a-h (x=1..8)
+    for (int rank = 9; rank >= 2; --rank) {
+        int empty_count = 0;
+        for (int file = 1; file <= 8; ++file) {
+            const int sq = rank * 10 + file;
+            const int piece = board[sq];
+            if (piece == EMPTY) {
+                ++empty_count;
+            } else {
+                if (empty_count > 0) {
+                    fen += ('0' + empty_count);
+                    empty_count = 0;
+                }
+                const int piece_type = piece & 0x7f; // strip color bit
+                const bool is_black = (piece & 0x80) != 0;
+                if (piece_type >= 1 && piece_type <= 6) {
+                    fen += is_black ? black_piece_char[piece_type]
+                                   : white_piece_char[piece_type];
+                }
+            }
+        }
+        if (empty_count > 0) {
+            fen += ('0' + empty_count);
+        }
+        if (rank > 2) {
+            fen += '/';
+        }
+    }
+
+    // 2. Active color
+    // pos.color is the side that just moved to reach this position.
+    // If movenumber == 0, it's the starting position; use player_to_move.
+    bool white_to_move;
+    if (movenumber == 0) {
+        white_to_move = (player_to_move == WHITE);
+    } else {
+        // The side that just moved is pos.color; the side to move next is opposite
+        white_to_move = (pos.color == BLACK);
+    }
+    fen += white_to_move ? " w " : " b ";
+
+    // 3. Castling availability
+    // castle bits: 1=WhiteShort(K), 2=WhiteLong(Q), 4=BlackShort(k), 8=BlackLong(q)
+    std::string castling;
+    if (pos.castle & 1) castling += 'K';
+    if (pos.castle & 2) castling += 'Q';
+    if (pos.castle & 4) castling += 'k';
+    if (pos.castle & 8) castling += 'q';
+    fen += castling.empty() ? "-" : castling;
+
+    // 4. En passant target square
+    // en_passant is stored as board index (rank*10 + file), 0 means none
+    fen += ' ';
+    if (pos.en_passant > 0) {
+        const int ep_file = pos.en_passant % 10; // 1..8
+        const int ep_rank = pos.en_passant / 10; // 2..9
+        fen += static_cast<char>('a' + ep_file - 1);
+        fen += static_cast<char>('1' + ep_rank - 2);
+    } else {
+        fen += '-';
+    }
+
+    // 5. Halfmove clock (50-move rule counter)
+    fen += ' ';
+    fen += std::to_string(pos.not_pawn_move);
+
+    // 6. Fullmove number (1-based; increments after Black's move)
+    // movenumber 0 and 1 are both move 1; after that: (movenumber / 2) + 1
+    const int fullmove = (movenumber <= 1) ? 1 : (movenumber / 2) + 1;
+    fen += ' ';
+    fen += std::to_string(fullmove);
+
+    return fen;
+}
 
 void Chess::checkup() {
     if ((max_time != 0 && Util::get_ms() >= stop_time) || stop_received) {

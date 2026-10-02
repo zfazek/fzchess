@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 
 #include "Table.h"
 #include "Uci.h"
@@ -60,6 +61,7 @@ class Chess {
     void invert_player_to_move();
     void processCommands(const char *input) const;
     uint64_t perft(const int dpt);
+    std::string get_fen(const int movenumber) const;
 
 public:
     std::unique_ptr<Table> table;
