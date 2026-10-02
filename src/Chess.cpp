@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <ctime>
+#include <iostream>
 #include <string>
 
 #include "Eval.h"
@@ -19,6 +21,65 @@ struct best_lines {
 Chess::Chess() {
     uci = std::make_unique<Uci>(this);
     table = std::make_unique<Table>(this);
+    init_zobrist();
+}
+
+void Chess::init_zobrist() {
+    srand(static_cast<unsigned int>(time(nullptr)));
+    // WHITE: i=0, BLACK: i=1; piece types 1..6
+    for (int i = 0; i < 2; ++i) {
+        for (int j = 1; j < 7; ++j) {
+            for (int k = 0; k < 120; ++k) {
+                zobrist_piece[i][j][k] = zobrist_rand();
+            }
+        }
+    }
+    zobrist_side_white = zobrist_rand();
+    zobrist_side_black = zobrist_rand();
+    for (int i = 0; i < 120; ++i) {
+        zobrist_enpassant[i] = zobrist_rand();
+    }
+    for (int i = 0; i < 16; ++i) {
+        zobrist_castle[i] = zobrist_rand();
+    }
+}
+
+uint64_t Chess::zobrist_rand() const {
+    uint64_t r = 0;
+    for (int i = 0; i < 4; ++i) {
+        r ^= static_cast<uint64_t>(rand()) << (i * 15);
+    }
+    return r;
+}
+
+uint64_t Chess::zobrist_key() const {
+    return compute_zobrist_key(move_number);
+}
+
+uint64_t Chess::compute_zobrist_key(int mn) const {
+    uint64_t key = 0;
+    // Side to move: infer from movelist[mn].color (the side that just moved)
+    // At mn==0 use player_to_move directly; otherwise the side to move is opposite of who just moved
+    int side;
+    if (mn == 0) {
+        side = player_to_move;
+    } else {
+        side = -movelist[mn].color;
+    }
+    key ^= (side == WHITE) ? zobrist_side_white : zobrist_side_black;
+
+    const int *board = tablelist[mn];
+    for (int k = 20; k < 100; ++k) {
+        const int field = board[k];
+        if (field > EMPTY && field < OFFBOARD) {
+            const int figure = field & 127;
+            const int color_idx = (field & 128) >> 7;
+            key ^= zobrist_piece[color_idx][figure][k];
+        }
+    }
+    key ^= zobrist_enpassant[movelist[mn].en_passant];
+    key ^= zobrist_castle[movelist[mn].castle & 15];
+    return key;
 }
 
 void Chess::start_game() { // new
@@ -39,8 +100,8 @@ void Chess::make_move() {
     uint64_t time_elapsed;
     uint64_t time_current_depth_start, time_current_depth_stop, time_remaining;
     nodes = 0;
-    table->eval->hash->reset_counters();
-    table->eval->hash->clear();
+    table->eval->tt_nodes = 0;
+    ++search_age; // invalidates TT entries from the previous search
     start_time = Util::get_ms();
     stop_time = start_time + max_time;
     depth = 1;
@@ -124,7 +185,10 @@ void Chess::make_move() {
     }
     printf("\nbestmove %s\n", Util::move2str(best_move));
     Util::flush();
-    table->eval->hash->printStatistics(nodes);
+    if (nodes > 0) {
+        std::cout << "TT hits " << table->eval->tt_nodes
+                  << ", TT/nodes: " << (table->eval->tt_nodes * 100 / nodes) << "%" << std::endl;
+    }
     // Update the table without printing it
     table->update_table(best_move, false);
     invert_player_to_move();
@@ -230,7 +294,7 @@ int Chess::alfabeta(int dpt, int alfa, int beta) {
             }
             if (dpt == 1) {
                 best_move = alfarray[i];
-                table->eval->hash->printStatistics(nodes);
+                // (TT statistics printed at end of make_move)
                 uint64_t time_elapsed = Util::get_ms() - start_time;
                 // If checkmate is found
                 if (abs(u) > 20000) {

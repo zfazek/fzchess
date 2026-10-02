@@ -16,6 +16,7 @@
 
 // Parameters of the given position
 struct position_t {
+    uint64_t zobrist_key;   // Incrementally maintained Zobrist hash
     int color;
     int move_from;
     int move_to;
@@ -62,6 +63,8 @@ class Chess {
     void processCommands(const char *input) const;
     uint64_t perft(const int dpt);
     std::string get_fen(const int movenumber) const;
+    uint64_t zobrist_key() const;          // full recompute (used for init/debug only)
+    uint64_t compute_zobrist_key(int mn) const; // full recompute for a given move_number slot
 
 public:
     std::unique_ptr<Table> table;
@@ -96,6 +99,14 @@ public:
 
     bool stop_received = false;
     bool sort_alfarray = true;
+    uint8_t search_age = 0; // Incremented each make_move() to invalidate TT entries from prior searches
+
+    // Zobrist hashing tables — also used by Table::update_table() for incremental updates
+    uint64_t zobrist_side_white;
+    uint64_t zobrist_side_black;
+    uint64_t zobrist_piece[2][7][120]; // [color 0=white/1=black][piece 1-6][square]
+    uint64_t zobrist_enpassant[120];
+    uint64_t zobrist_castle[16];
 
 #ifdef SORT_ALFARRAY
 
@@ -116,4 +127,7 @@ public:
     bool last_ply;
     uint64_t start_time, stop_time;
     int stop_search;
+
+    uint64_t zobrist_rand() const;
+    void init_zobrist();
 };

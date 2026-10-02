@@ -2,7 +2,6 @@ add_executable(fzchess
     main.cpp
     Chess.cpp
     Eval.cpp
-    Hash.cpp
     Table.cpp
     Uci.cpp
     Util.cpp
@@ -10,4 +9,5 @@ add_executable(fzchess
     pg_key.h
     pg_show.c
     pg_show.h
+    TranspositionTable.cpp
 )

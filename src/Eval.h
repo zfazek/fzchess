@@ -2,7 +2,7 @@
 
 #include <memory>
 
-#include "Hash.h"
+#include "TranspositionTable.h"
 
 class Chess;
 
@@ -27,7 +27,8 @@ class Eval {
     const int friendly_pawn = 20;
     const int pawn_advantage = 10;
 
-    std::unique_ptr<Hash> hash;
+    uint64_t tt_nodes = 0; // Number of TT cache hits
+    std::unique_ptr<TranspositionTable> tt;
 
   private:
     Chess *chess;

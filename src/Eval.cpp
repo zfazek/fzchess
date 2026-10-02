@@ -1,11 +1,13 @@
 #include "Eval.h"
 
 #include <cstdlib>
+#include <iostream>
 
 #include "Chess.h"
 
 Eval::Eval(Chess *ch) : chess(ch) {
-    hash = std::make_unique<Hash>();
+    tt = std::make_unique<TranspositionTable>();
+    tt->resize(1 << 20); // 2^20 = ~1M entries, allocated once
 }
 
 // Evaluates material and king position, pawn structure, etc
@@ -106,17 +108,21 @@ int Eval::evaluation_material(const int dpt) {
 
 // Evaluates material plus number of legal moves of both sides plus a random number
 int Eval::evaluation(const int e_legal_pointer, const int dpt) {
-    hash->set_hash(chess);
-    if (hash->posInHashtable()) {
-        ++hash->hash_nodes;
-        return hash->getU();
+    // Use the incrementally maintained Zobrist key — no board scan needed
+    const uint64_t key = chess->movelist[chess->move_number].zobrist_key;
+
+    const int cached = tt->probe(key);
+    if (cached != TT_MISS) {
+        ++tt_nodes;
+        return cached;
     }
 
-    // not in the hashtable. normal evaluating
+    // Not in the table — normal evaluation
     if (chess->table->third_occurance() ||
         chess->table->is_not_enough_material() ||
         chess->movelist[chess->move_number].not_pawn_move >= 100) {
-        hash->setU(chess->table->eval->DRAW);
+        tt->store(key, static_cast<int16_t>(dpt), static_cast<int16_t>(DRAW), TT_EXACT,
+                  chess->search_age);
         return chess->table->eval->DRAW;
     }
     chess->table->list_legal_moves();
@@ -142,8 +148,8 @@ int Eval::evaluation(const int e_legal_pointer, const int dpt) {
     const int random_number = 0; // rand() % (random_window + 1);
     const int u = evaluation_material(dpt) + 2 * lp + random_number;
 
-    // if this position is not in the hashtable->insert it to hashtable
-    hash->setU(u);
+    tt->store(key, static_cast<int16_t>(dpt), static_cast<int16_t>(u), TT_EXACT,
+              chess->search_age);
     return u;
 }
 

@@ -62,6 +62,11 @@ void Table::reset_movelist() {
         }
     }
     chess->move_number = 0;
+    // Compute the starting Zobrist key once; update_table() will maintain it incrementally
+    const uint64_t start_key = chess->compute_zobrist_key(0);
+    for (int n = 0; n < MAX_MOVES; n++) {
+        chess->movelist[n].zobrist_key = start_key;
+    }
 }
 
 void Table::update_table(const int move, const bool print, const bool fake) {
@@ -274,6 +279,80 @@ void Table::update_table(const int move, const bool print, const bool fake) {
         }
     }
 #endif
+
+    // --- Incremental Zobrist key update ---
+    // Start from parent key and XOR out/in only what changed.
+    {
+        uint64_t key = pm1->zobrist_key;
+
+        // Helper lambdas for readability
+        auto xor_piece = [&](int sq, int piece) {
+            const int ci = (piece & 128) >> 7;
+            const int fig = piece & 127;
+            key ^= chess->zobrist_piece[ci][fig][sq];
+        };
+
+        // 1. Flip side to move
+        key ^= chess->zobrist_side_white;
+        key ^= chess->zobrist_side_black;
+
+        // 2. Castle rights changed
+        key ^= chess->zobrist_castle[pm1->castle & 15];
+        key ^= chess->zobrist_castle[pm2->castle & 15];
+
+        // 3. En passant changed
+        key ^= chess->zobrist_enpassant[pm1->en_passant];
+        key ^= chess->zobrist_enpassant[pm2->en_passant];
+
+        // 4. Moving piece leaves square_from
+        xor_piece(square_from, figure_from);
+
+        // 5. Captured piece (regular capture) leaves square_to
+        if (figure_to != EMPTY) {
+            xor_piece(square_to, figure_to);
+        }
+
+        // 6. Moving piece (or promoted piece) arrives at square_to
+        //    pt2[square_to] already holds the final piece value
+        xor_piece(square_to, *(pt2 + square_to));
+
+        // 7. Castling: rook also moved
+        if (figure_from == WhiteKing) {
+            if (square_from == 25 && square_to == 27) {
+                // Short castle: rook 28->26
+                xor_piece(28, WhiteRook);
+                xor_piece(26, WhiteRook);
+            } else if (square_from == 25 && square_to == 23) {
+                // Long castle: rook 21->24
+                xor_piece(21, WhiteRook);
+                xor_piece(24, WhiteRook);
+            }
+        } else if (figure_from == BlackKing) {
+            if (square_from == 95 && square_to == 97) {
+                // Short castle: rook 98->96
+                xor_piece(98, BlackRook);
+                xor_piece(96, BlackRook);
+            } else if (square_from == 95 && square_to == 93) {
+                // Long castle: rook 91->94
+                xor_piece(91, BlackRook);
+                xor_piece(94, BlackRook);
+            }
+        }
+
+        // 8. En passant capture: the captured pawn is not at square_to
+        if (pm2->captured_figure != EMPTY && figure_to == EMPTY) {
+            // This was an en passant capture — the pawn was removed from a different square
+            if (figure_from == WhitePawn) {
+                xor_piece(square_to - 10, BlackPawn);
+            } else if (figure_from == BlackPawn) {
+                xor_piece(square_to + 10, WhitePawn);
+            }
+        }
+
+        pm2->zobrist_key = key;
+    }
+    // --- End incremental Zobrist update ---
+
     if (print) {
         print_table();
     }
@@ -459,6 +538,10 @@ void Table::setboard(const char *input) {
             chess->invert_player_to_move();
         }
     }
+    // (Re)compute the Zobrist key for the final position after all FEN moves are applied.
+    // update_table() maintains it incrementally from here on.
+    chess->movelist[chess->move_number].zobrist_key =
+        chess->compute_zobrist_key(chess->move_number);
     print_table();
 }
 
