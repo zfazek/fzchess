@@ -90,6 +90,8 @@ void Table::update_table(const int move, const bool print, const bool fake) {
     pm2->pos_black_king = pm1->pos_black_king;
     pm2->white_king_castled = pm1->white_king_castled;
     pm2->black_king_castled = pm1->black_king_castled;
+    pm2->en_passant = pm1->en_passant; // always copy; overwritten later in !fake path
+    pm2->not_pawn_move = pm1->not_pawn_move; // always copy; overwritten later in !fake path
 
     const int square_from = 1 + x_from + (y_from + 2) * 10;
     const int square_to = 1 + x_to + (y_to + 2) * 10;
@@ -280,9 +282,8 @@ void Table::update_table(const int move, const bool print, const bool fake) {
     }
 #endif
 
-    // --- Incremental Zobrist key update ---
-    // Start from parent key and XOR out/in only what changed.
-    {
+    // --- Incremental Zobrist key update (only needed for real moves, not fake/sorting moves) ---
+    if (!fake) {
         uint64_t key = pm1->zobrist_key;
 
         // Helper lambdas for readability
