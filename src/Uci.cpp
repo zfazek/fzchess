@@ -59,6 +59,16 @@ void Uci::position_received(const char *input) {
     }
     while (true) {
         char *ret = fgets(input, 1000, stdin);
+        if (ret == nullptr) {
+            // EOF or read error: wait for any running search, then exit.
+            // Without this, the stale `input` buffer (e.g. a prior "go") was
+            // re-processed forever, causing infinite self-play and a
+            // move_number overflow crash past MAX_MOVES.
+            if (th_make_move.joinable()) {
+                th_make_move.join();
+            }
+            exit(EXIT_SUCCESS);
+        }
         if (ret && strstr(input, "quit")) {
             exit(EXIT_SUCCESS);
         }
@@ -92,6 +102,11 @@ void Uci::position_received(const char *input) {
                 if (strstr(input, "movestogo")) {
                     sscanf(strstr(input, "movestogo"), "movestogo %d",
                            &movestogo);
+                }
+                // Guard against division by zero: movestogo 0 (or negative) is
+                // treated as a safe default. Prevents SIGFPE in the time formula below.
+                if (movestogo <= 0) {
+                    movestogo = 40;
                 }
                 if (strstr(input, "wtime")) {
                     sscanf(strstr(input, "wtime"), "wtime %d", &wtime);

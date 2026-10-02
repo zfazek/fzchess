@@ -108,6 +108,15 @@ void Chess::make_move() {
     stop_search = false;
     const int root_move_number = move_number; // restore point after a search interruption
     const int root_player_to_move = player_to_move;
+
+    // Ensure best_move is always a legal move for the CURRENT position before the
+    // search starts. Otherwise, if the time limit expires before depth 1 assigns
+    // best_move, make_move would play a stale move from a previous search, corrupt
+    // the board, and crash on the next search.
+    table->list_legal_moves();
+    if (legal_pointer >= 0) {
+        best_move = legal_moves[0];
+    }
     const string fen = get_fen(move_number).c_str();
     printf("FEN: %s\n", get_fen(move_number).c_str());
     Util::flush();
