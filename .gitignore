@@ -1,6 +1,11 @@
 build
+build_*/
 tags
 fzchess
+fzchess_*
 .vscode
 .aider*
 *.bin
+gmon.out
+perf.data
+perf.data.*

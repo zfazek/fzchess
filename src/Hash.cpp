@@ -47,7 +47,7 @@ void Hash::set_hash(const Chess *chess) {
     }
     // XOR the figures;
     for (int k = 20; k < 100; k++) {
-        const int field = chess->tablelist[chess->move_number][k];
+        const int field = chess->board[k];
         if (field > EMPTY && field < OFFBOARD) {
             const int figure = (field & 127);
             const int i = (field & 128) >> 7;

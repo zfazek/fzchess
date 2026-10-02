@@ -68,9 +68,9 @@ uint64_t Chess::compute_zobrist_key(int mn) const {
     }
     key ^= (side == WHITE) ? zobrist_side_white : zobrist_side_black;
 
-    const int *board = tablelist[mn];
+    const int *brd = board;
     for (int k = 20; k < 100; ++k) {
-        const int field = board[k];
+        const int field = brd[k];
         if (field > EMPTY && field < OFFBOARD) {
             const int figure = field & 127;
             const int color_idx = (field & 128) >> 7;
@@ -131,7 +131,7 @@ void Chess::make_move() {
         }
         if (stop_search) {
             for (int i = 0; i < curr_seldepth - 1; i++) {
-                --move_number;
+                table->unmake_table();
             }
         }
         time_current_depth_stop = Util::get_ms();
@@ -250,13 +250,13 @@ int Chess::alfabeta(int dpt, int alfa, int beta) {
         if ((dpt >= depth && movelist[move_number].further == 0) || dpt >= seldepth) {
             last_ply = true;
             u = table->eval->evaluation(legal_pointer, dpt);
-            --move_number;
+            table->unmake_table();
         } else { // Not last ply
             if (table->third_occurance() ||
                 table->is_not_enough_material() ||
                 movelist[move_number].not_pawn_move >= 100) {
                 u = table->eval->DRAW;
-                --move_number;
+                table->unmake_table();
             } else {
                 u = table->eval->evaluation_only_end_game(dpt);
                 if (u == 32767) { // not end
@@ -265,7 +265,7 @@ int Chess::alfabeta(int dpt, int alfa, int beta) {
                     last_ply = false;
                     invert_player_to_move();
                 }
-                --move_number;
+                table->unmake_table();
             }
         }
         if (dpt == 1) {
@@ -364,7 +364,7 @@ uint64_t Chess::perft(const int dpt) {
         invert_player_to_move();
         nodes += perft(dpt - 1);
         invert_player_to_move();
-        --move_number;
+        table->unmake_table();
     }
     return nodes;
 }
@@ -375,7 +375,7 @@ void Chess::sort_legal_moves(const int nbr_legal, const int dpt) {
         table->update_table(move, false);
         const int u = table->eval->evaluation_material(dpt);
         sorted_legal_moves[i] = {move, u};
-        --move_number;
+        table->unmake_table();
     }
     std::sort(sorted_legal_moves, sorted_legal_moves + nbr_legal);
     for (int i = 0; i < nbr_legal; i++) {
@@ -441,10 +441,6 @@ void Chess::calculate_evarray_new() {
 }
 */
 
-// Returns the FEN string for the position stored in tablelist[movenumber] / movelist[movenumber].
-// The side to move is inferred from movelist[movenumber].color (the side that just moved),
-// so the side to move in the FEN is the opposite. At move_number==0 (start), color==0,
-// so we use player_to_move instead for safety.
 std::string Chess::get_fen(const int movenumber) const {
     // Piece characters indexed by piece value (0x00..0x06 white, 0x81..0x86 black)
     // WhitePawn=1,Knight=2,Bishop=3,Rook=4,Queen=5,King=6
@@ -452,7 +448,8 @@ std::string Chess::get_fen(const int movenumber) const {
     static const char white_piece_char[7] = {'.', 'P', 'N', 'B', 'R', 'Q', 'K'};
     static const char black_piece_char[7] = {'.', 'p', 'n', 'b', 'r', 'q', 'k'};
 
-    const int *board = tablelist[movenumber];
+    // Only current position is available (no historical board copies)
+    const int *brd = board;
     const struct position_t &pos = movelist[movenumber];
 
     std::string fen;
@@ -462,7 +459,7 @@ std::string Chess::get_fen(const int movenumber) const {
         int empty_count = 0;
         for (int file = 1; file <= 8; ++file) {
             const int sq = rank * 10 + file;
-            const int piece = board[sq];
+            const int piece = brd[sq];
             if (piece == EMPTY) {
                 ++empty_count;
             } else {

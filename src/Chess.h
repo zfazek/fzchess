@@ -21,6 +21,8 @@ struct position_t {
     int move_from;
     int move_to;
     int captured_figure;
+    int figure_moved;       // The piece that moved (needed for unmake)
+    int ep_capture_sq;      // Square where captured pawn was removed (en passant), 0 if not ep
     int promotion;
     int castle;
     int not_pawn_move;
@@ -70,8 +72,8 @@ public:
     std::unique_ptr<Table> table;
     std::unique_ptr<Uci> uci;
 
-    // Array of moves. Each time the whole table is stored
-    int tablelist[MAX_MOVES][120];
+    // Single board (replaces tablelist[MAX_MOVES][120])
+    int board[120];
 
     // Array of legal moves
     int legal_moves[MAX_LEGAL_MOVES];

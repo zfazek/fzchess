@@ -15,7 +15,7 @@ int Eval::evaluation_material(const int dpt) {
     int c;
     int evaking;
     int e = 0;
-    const int *pt = chess->tablelist[chess->move_number];
+    const int *pt = chess->board;
     const struct position_t *pm = chess->movelist + chess->move_number;
 
     // Calculate summa of material for end game threshold
@@ -176,7 +176,7 @@ int Eval::evaluation_only_end_game(const int dpt) {
 // Bonus for king's adjacent own pawns
 int Eval::evaluation_king(const int idx, const int field) {
     int e = 0;
-    const int *pt = chess->tablelist[chess->move_number];
+    const int *pt = chess->board;
     const int *pdir = chess->table->dir_king;
     for (int k = 0; k < 8; ++k, ++pdir) {
         if (*(pt + idx + *pdir) == (field & 128) + chess->table->Pawn) {
@@ -191,7 +191,7 @@ int Eval::evaluation_pawn(const int idx, const int field, const int sm) {
 
     // punishing double pawns
     int dir = 0;
-    int *pt = chess->tablelist[chess->move_number] + idx;
+    int *pt = chess->board + idx;
     do {
         dir += 10;
         if (*(pt + dir) == field) {
@@ -222,7 +222,7 @@ int Eval::sum_material(const int color) {
     int e = 0;
     // int* pt = tablelist + move_number;
     for (int i = 20; i < 100; ++i) {
-        const int field = chess->tablelist[chess->move_number][i];
+        const int field = chess->board[i];
         if (field > 0 && field < OFFBOARD) {
             const int figure_color = field & 128;
             if ((color == chess->WHITE && figure_color == 0) ||

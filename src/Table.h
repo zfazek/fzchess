@@ -37,6 +37,7 @@ class Table {
     bool is_attacked(const int field, const int color);
     bool is_not_enough_material();
     void update_table(const int move, const bool print, const bool fake = false);
+    void unmake_table();
     bool third_occurance();
 
   private:
