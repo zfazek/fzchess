@@ -695,17 +695,15 @@ bool Table::is_attacked(const int field, const int color) {
     const int * const b = chess->board;
 
     // Piece values for the attacking side (opposite of `color`)
-    int PawnA, PawnB, Knight, Bishop, Rook, Queen, King;
+    int Knight, Bishop, Rook, Queen, King;
     if (color == Chess::WHITE) {
         // White king is at `field` — check if attacked by Black
-        PawnA   = BlackPawn;   // black pawn attacks from above: field+9, field+11
-        PawnB   = BlackPawn;
         Knight  = BlackKnight;
         Bishop  = BlackBishop;
         Rook    = BlackRook;
         Queen   = BlackQueen;
         King    = BlackKing;
-        // Pawn attack squares
+        // Pawn attack squares (black pawn attacks from above: field+9, field+11)
         if (__builtin_expect(b[field + 9] == BlackPawn || b[field + 11] == BlackPawn, 0))
             return true;
     } else {

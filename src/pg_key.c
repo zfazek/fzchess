@@ -296,7 +296,7 @@ uint64 *RandomCastle = Random64 + 768;
 uint64 *RandomEnPassant = Random64 + 772;
 uint64 *RandomTurn = Random64 + 780;
 
-char *piece_names = "pPnNbBrRqQkK";
+const char *piece_names = "pPnNbBrRqQkK";
 
 uint64 hash(char *fen) {
     char board_s[72 + 1];
@@ -313,7 +313,7 @@ uint64 hash(char *fen) {
     f = 0;
     p = 0;
     while (1) {
-        if (p >= strlen(board_s))
+        if (p >= (int)strlen(board_s))
             break;
         c = board_s[p++];
         if (c == '/') {
@@ -340,7 +340,7 @@ uint64 hash(char *fen) {
     }
     p = 0;
     while (1) {
-        if (p >= strlen(castle_flags_s))
+        if (p >= (int)strlen(castle_flags_s))
             break;
         c = castle_flags_s[p++];
         switch (c) {
