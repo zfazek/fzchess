@@ -42,8 +42,6 @@ class Table {
 
   private:
     Chess *chess;
-    int *pt;
-    bool end_direction;
 
     // Values representing the figures in the table
     static constexpr int WhitePawn = 1;
@@ -78,55 +76,6 @@ class Table {
         {191, 88},  // "X"
     };
 
-    // Array to calculate x vector from direction (k) for move notation
-    const int conv[43][2] = {
-        { -1, -2},
-        {  0,  0},
-        {  1, -2},
-        {  0,  0},
-        {  0,  0},
-        {  0,  0},
-        {  0,  0},
-        {  0,  0},
-        {  0,  0},
-        { -2, -1},
-        { -1, -1},
-        {  0, -1},
-        {  1, -1},
-        {  2, -1},
-        {  0,  0},
-        {  0,  0},
-        {  0,  0},
-        {  0,  0},
-        {  0,  0},
-        {  0,  0},
-        { -1,  0},
-        {  0,  0},
-        {  1,  0},
-        {  0,  0},
-        {  0,  0},
-        {  0,  0},
-        {  0,  0},
-        {  0,  0},
-        {  0,  0},
-        { -2,  1},
-        { -1,  1},
-        {  0,  1},
-        {  1,  1},
-        {  2,  1},
-        {  0,  0},
-        {  0,  0},
-        {  0,  0},
-        {  0,  0},
-        {  0,  0},
-        {  0,  0},
-        { -1,  2},
-        {  0,  2},
-        {  1,  2},
-    };
-
     void is_really_legal();
-    void append_legal_moves(const int dir_piece, const int i, const int j, const int kk);
-    void append_legal_moves_inner(const int dir_piece, const int i, const int j, const int kk);
     void castling();
 };

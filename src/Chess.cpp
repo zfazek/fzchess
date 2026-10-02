@@ -106,6 +106,8 @@ void Chess::make_move() {
     stop_time = start_time + max_time;
     depth = 1;
     stop_search = false;
+    const int root_move_number = move_number; // restore point after a search interruption
+    const int root_player_to_move = player_to_move;
     const string fen = get_fen(move_number).c_str();
     printf("FEN: %s\n", get_fen(move_number).c_str());
     Util::flush();
@@ -130,9 +132,15 @@ void Chess::make_move() {
 
         }
         if (stop_search) {
-            for (int i = 0; i < curr_seldepth - 1; i++) {
+            // The time-limit exception unwinds the recursion without undoing the
+            // moves made along the current line. With a single shared board, we must
+            // restore it to the root position by unmaking every pending move.
+            while (move_number > root_move_number) {
                 table->unmake_table();
             }
+            // Restore side to move to the root side (invert_player_to_move pairs in
+            // the recursion are not balanced after an exception).
+            player_to_move = root_player_to_move;
         }
         time_current_depth_stop = Util::get_ms();
         time_remaining = stop_time - time_current_depth_stop;

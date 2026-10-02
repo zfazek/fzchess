@@ -832,517 +832,127 @@ bool Table::third_occurance() {
 
 // Searches and stores all the legal moves
 void Table::list_legal_moves() {
-    int move;
-    // chess->legal_pointer = -1 means no legal moves
     chess->legal_pointer = -1;
-    // Maps the table
-    pt = chess->board;
-    int *ptt = pt + 20; // skip table borders
-    --ptt;
-    for (int i = 2; i < 10; i++) {
-        for (int j = 0; j < 10; j++) {
-            ptt++;
-            const int field = *ptt;
-            if (field == OFFBOARD) {
-                continue;
-            }
+    const int * const b = chess->board;
+    const int ptm = chess->player_to_move;
+    const int my_color  = (ptm == Chess::WHITE) ? WhiteColor : BlackColor;
+    const int opp_color = (ptm == Chess::WHITE) ? BlackColor : WhiteColor;
+    const int en_pass   = chess->movelist[chess->move_number].en_passant;
 
-            // figure without color
-            const int figure = field & 127;
-            const int field_color = field & 128;
+    // Encode a move from two square indices + optional promotion bits
+    // sq: board index (21-98), x = sq%10-1, y = sq/10-2
+    auto encode = [](int sf, int st, int promo = 0) -> int {
+        const int xf = sf % 10 - 1, yf = sf / 10 - 2;
+        const int xt = st % 10 - 1, yt = st / 10 - 2;
+        return (xf << 13) | (yf << 10) | (xt << 5) | (yt << 2) | promo;
+    };
 
-            // Right color found
-            if ((chess->player_to_move == Chess::WHITE && field_color == WhiteColor) ||
-                (chess->player_to_move == Chess::BLACK && field_color == BlackColor)) {
-                if (field == WhitePawn) {
-                    // If upper field is empty
-                    if (*(ptt + 10) == EMPTY) {
-                        // If white pawn is in the 7th rank->promotion
-                        if (i - 1 == 7) {
-                            // Calculates Queen promotion
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= 6 * 0x0400;
-                            move |= (j - 1) * 0x0020;
-                            move |= 7 * 0x0004;
-                            move |= 0x0200;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
+    // Try adding a move; drop it if it leaves own king in check
+    auto try_move = [&](int sf, int st, int promo = 0) {
+        chess->legal_pointer++;
+        chess->legal_moves[chess->legal_pointer] = encode(sf, st, promo);
+        is_really_legal();
+    };
 
-#ifdef PERFT
-                            // Calculates Rook promotion
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= 6 * 0x0400;
-                            move |= (j - 1) * 0x0020;
-                            move |= 7 * 0x0004;
-                            move |= 0x0100;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
+    // A square is a legal destination if it's empty or holds an opponent piece
+    auto can_land = [&](int t) -> bool {
+        if (t < 21 || t > 98) return false;
+        const int v = b[t];
+        return v == EMPTY || ((v & 128) == opp_color && v != OFFBOARD);
+    };
 
-                            // Calculates Bishop promotion
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= 6 * 0x0400;
-                            move |= (j - 1) * 0x0020;
-                            move |= 7 * 0x0004;
-                            move |= 0x0002;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
+    // Sliding ray: walk sq+=dir, add quiet moves, then try capture
+    auto slide = [&](int sf, int dir) {
+        int sq = sf + dir;
+        while (b[sq] == EMPTY) { try_move(sf, sq); sq += dir; }
+        if (b[sq] != OFFBOARD && (b[sq] & 128) == opp_color) try_move(sf, sq); // capture
+    };
 
-#endif
-                            // Calculates Knight promotion
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= 6 * 0x0400;
-                            move |= (j - 1) * 0x0020;
-                            move |= 7 * 0x0004;
-                            move |= 0x0001;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-                        } else {
-                            // Normal pawn move
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= (i - 2) * 0x0400;
-                            move |= (j - 1) * 0x0020;
-                            move |= (i - 1) * 0x0004;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-                        }
+    for (int sq = 21; sq <= 98; ++sq) {
+        const int field = b[sq];
+        if (field == EMPTY || field == OFFBOARD) continue;
+        if ((field & 128) != my_color) continue;
+        const int figure = field & 127;
 
-                        // If white pawn is in the 2nd rank
-                        if (i - 1 == 2) {
-                            if (*(ptt + 20) == EMPTY) {
-                                chess->legal_pointer++;
-                                move = 0;
-                                move |= (j - 1) * 0x2000;
-                                move |= 0x0400;
-                                move |= (j - 1) * 0x0020;
-                                move |= 3 * 0x0004;
-                                chess->legal_moves[chess->legal_pointer] = move;
-                                is_really_legal();
-                            }
-                        }
-                    }
-
-                    // Pawn capture
-                    if ((*(ptt + 9) & 128) == BlackColor && *(ptt + 9) != OFFBOARD) {
-                        if (i - 1 == 7) {
-                            // With Queen promotion
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= 6 * 0x0400;
-                            move |= (j - 2) * 0x0020;
-                            move |= 7 * 0x0004;
-                            move |= 0x0200;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-
-#ifdef PERFT
-                            // With Rook promotion
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= 6 * 0x0400;
-                            move |= (j - 2) * 0x0020;
-                            move |= 7 * 0x0004;
-                            move |= 0x0100;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-
-                            // With Bishop promotion
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= 6 * 0x0400;
-                            move |= (j - 2) * 0x0020;
-                            move |= 7 * 0x0004;
-                            move |= 0x0002;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-
-#endif
-                            // With Knight promotion
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= 6 * 0x0400;
-                            move |= (j - 2) * 0x0020;
-                            move |= 7 * 0x0004;
-                            move |= 0x0001;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-                        } else {
-                            // Normal capture
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= (i - 2) * 0x0400;
-                            move |= (j - 2) * 0x0020;
-                            move |= (i - 1) * 0x0004;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-                        }
-                    }
-
-                    // Pawn capture of the other direction
-                    if ((*(ptt + 11) & 128) == BlackColor && *(ptt + 11) != OFFBOARD) {
-                        if (i - 1 == 7) {
-                            // With Queen promotion
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= 6 * 0x0400;
-                            move |= (j)*0x0020;
-                            move |= 7 * 0x0004;
-                            move |= 0x0200;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-
-#ifdef PERFT
-                            // With Rook promotion
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= 6 * 0x0400;
-                            move |= (j)*0x0020;
-                            move |= 7 * 0x0004;
-                            move |= 0x0100;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-
-                            // With Bishop promotion
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= 6 * 0x0400;
-                            move |= (j)*0x0020;
-                            move |= 7 * 0x0004;
-                            move |= 0x0002;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-
-#endif
-                            // With Knight promotion
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= 6 * 0x0400;
-                            move |= (j)*0x0020;
-                            move |= 7 * 0x0004;
-                            move |= 0x0001;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-                        } else {
-                            // Normal capture
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= (i - 2) * 0x0400;
-                            move |= (j)*0x0020;
-                            move |= (i - 1) * 0x0004;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-                        }
-                    }
-
-                    // If en passant is possible
-                    const int en_pass = (chess->movelist + chess->move_number)->en_passant;
-
-                    // If it is the right field
-                    if (en_pass && en_pass == i * 10 + j + 9) {
-                        chess->legal_pointer++;
-                        move = 0;
-                        move |= (j - 1) * 0x2000;
-                        move |= 4 * 0x0400;
-                        move |= (j - 2) * 0x0020;
-                        move |= 5 * 0x0004;
-                        chess->legal_moves[chess->legal_pointer] = move;
-                        is_really_legal();
-                    }
-
-                    // If it is the right field
-                    if (en_pass && en_pass == i * 10 + j + 11) {
-                        chess->legal_pointer++;
-                        move = 0;
-                        move |= (j - 1) * 0x2000;
-                        move |= 4 * 0x0400;
-                        move |= (j)*0x0020;
-                        move |= 5 * 0x0004;
-                        chess->legal_moves[chess->legal_pointer] = move;
-                        is_really_legal();
+        if (figure == Pawn) {
+            if (ptm == Chess::WHITE) {
+                // Push
+                if (b[sq + 10] == EMPTY) {
+                    if (sq / 10 == 8) { // rank 7 -> promotion
+                        try_move(sq, sq + 10, 0x0200); // queen
+                        try_move(sq, sq + 10, 0x0100); // rook
+                        try_move(sq, sq + 10, 0x0002); // bishop
+                        try_move(sq, sq + 10, 0x0001); // knight
+                    } else {
+                        try_move(sq, sq + 10);
+                        if (sq / 10 == 3 && b[sq + 20] == EMPTY) // double push from rank 2
+                            try_move(sq, sq + 20);
                     }
                 }
-
-                // The same for black pawn
-                else if (field == BlackPawn) {
-                    if (*(ptt - 10) == EMPTY) {
-                        if (i - 1 == 2) {
-                            // With Queen promotion
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= 1 * 0x0400;
-                            move |= (j - 1) * 0x0020;
-                            move |= (i - 3) * 0x0004;
-                            move |= 0x0200;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-
-#ifdef PERFT
-                            // With Rook promotion
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= 1 * 0x0400;
-                            move |= (j - 1) * 0x0020;
-                            move |= (i - 3) * 0x0004;
-                            move |= 0x0100;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-
-                            // With Bishop promotion
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= 1 * 0x0400;
-                            move |= (j - 1) * 0x0020;
-                            move |= (i - 3) * 0x0004;
-                            move |= 0x0002;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-
-#endif
-                            // With Knight promotion
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= 1 * 0x0400;
-                            move |= (j - 1) * 0x0020;
-                            move |= (i - 3) * 0x0004;
-                            move |= 0x00001;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
+                // Captures
+                for (int d : {9, 11}) {
+                    const int cap = sq + d;
+                    if ((b[cap] & 128) == BlackColor && b[cap] != OFFBOARD) {
+                        if (sq / 10 == 8) {
+                            try_move(sq, cap, 0x0200);
+                            try_move(sq, cap, 0x0100);
+                            try_move(sq, cap, 0x0002);
+                            try_move(sq, cap, 0x0001);
                         } else {
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= (i - 2) * 0x0400;
-                            move |= (j - 1) * 0x0020;
-                            move |= (i - 3) * 0x0004;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-                        }
-                        if (i - 1 == 7) {
-                            if (*(ptt - 20) == EMPTY) {
-                                chess->legal_pointer++;
-                                move = 0;
-                                move |= (j - 1) * 0x2000;
-                                move |= 6 * 0x0400;
-                                move |= (j - 1) * 0x0020;
-                                move |= 4 * 0x0004;
-                                chess->legal_moves[chess->legal_pointer] = move;
-                                is_really_legal();
-                            }
+                            try_move(sq, cap);
                         }
                     }
-                    if (*(ptt - 9) > 0 && *(ptt - 9) < BlackColor) {
-                        if (i - 1 == 2) {
-                            // With Queen promotion
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= (i - 2) * 0x0400;
-                            move |= (j)*0x0020;
-                            move |= (i - 3) * 0x0004;
-                            move |= 0x0200;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-
-#ifdef PERFT
-                            // With Rook promotion
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= (i - 2) * 0x0400;
-                            move |= (j)*0x0020;
-                            move |= (i - 3) * 0x0004;
-                            move |= 0x0100;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-
-                            // With Bishop promotion
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= (i - 2) * 0x0400;
-                            move |= (j)*0x0020;
-                            move |= (i - 3) * 0x0004;
-                            move |= 0x0002;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-
-#endif
-                            // With Knight promotion
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= (i - 2) * 0x0400;
-                            move |= (j)*0x0020;
-                            move |= (i - 3) * 0x0004;
-                            move |= 0x0001;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-                        } else {
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= (i - 2) * 0x0400;
-                            move |= (j)*0x0020;
-                            move |= (i - 3) * 0x0004;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-                        }
-                    }
-                    if (*(ptt - 11) > 0 && *(ptt - 11) < BlackColor) {
-                        if (i - 1 == 2) {
-                            // With Queen promotion
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= (i - 2) * 0x0400;
-                            move |= (j - 2) * 0x0020;
-                            move |= (i - 3) * 0x0004;
-                            move |= 0x0200;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-
-#ifdef PERFT
-                            // With Rook promotion
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= (i - 2) * 0x0400;
-                            move |= (j - 2) * 0x0020;
-                            move |= (i - 3) * 0x0004;
-                            move |= 0x0100;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-
-                            // With Bishop promotion
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= (i - 2) * 0x0400;
-                            move |= (j - 2) * 0x0020;
-                            move |= (i - 3) * 0x0004;
-                            move |= 0x0002;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-
-#endif
-                            // With Knight promotion
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= (i - 2) * 0x0400;
-                            move |= (j - 2) * 0x0020;
-                            move |= (i - 3) * 0x0004;
-                            move |= 0x0001;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-                        } else {
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= (i - 2) * 0x0400;
-                            move |= (j - 2) * 0x0020;
-                            move |= (i - 3) * 0x0004;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-                        }
-                    }
-                    const int en_pass = (chess->movelist + chess->move_number)->en_passant;
-                    if (en_pass > 1) {
-                        if (en_pass == i * 10 + j - 9) {
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= 3 * 0x0400;
-                            move |= (j)*0x0020;
-                            move |= 2 * 0x0004;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-                        }
-                    }
-                    if (en_pass > 1) {
-                        if (en_pass == i * 10 + j - 11) {
-                            chess->legal_pointer++;
-                            move = 0;
-                            move |= (j - 1) * 0x2000;
-                            move |= 3 * 0x0400;
-                            move |= (j - 2) * 0x0020;
-                            move |= 2 * 0x0004;
-                            chess->legal_moves[chess->legal_pointer] = move;
-                            is_really_legal();
-                        }
-                    }
-                } else if (figure == Knight) {
-                    // kk : distance
-                    // k : number of directions of possible knight moves
-                    const int kk = 1;
-                    for (int k = 0; k < 8; k++) {
-                        if (*(ptt + dir_knight[k]) != OFFBOARD) {
-                            append_legal_moves(dir_knight[k], i, j, kk);
-                        }
-                    }
-                } else if (figure == King) {
-                    // Appends castling moves if possible
-                    castling();
-                    const int kk = 1;
-                    for (int k = 0; k < 8; k++) {
-                        if (*(ptt + dir_king[k]) != OFFBOARD) {
-                            append_legal_moves(dir_king[k], i, j, kk);
-                        }
-                    }
-                } else if (figure == Queen) {
-                    for (int k = 0; k < 8; k++) {
-                        int kk = 1;
-                        end_direction = false;
-
-                        // Increases kk while queen can move in that direction
-                        while (!end_direction && *(ptt + kk * (dir_king[k])) < OFFBOARD) {
-                            append_legal_moves(dir_king[k], i, j, kk);
-                            kk++;
-                        }
-                    }
-                } else if (figure == Bishop) {
-                    for (int k = 0; k < 4; k++) {
-                        int kk = 1;
-                        end_direction = false;
-                        while (!end_direction && *(ptt + kk * (dir_bishop[k])) < OFFBOARD) {
-                            append_legal_moves(dir_bishop[k], i, j, kk);
-                            kk++;
-                        }
-                    }
-                } else if (figure == Rook) {
-                    for (int k = 0; k < 4; k++) {
-                        int kk = 1;
-                        end_direction = false;
-                        while (!end_direction && *(ptt + kk * (dir_rook[k])) < OFFBOARD) {
-                            append_legal_moves(dir_rook[k], i, j, kk);
-                            kk++;
-                        }
+                    // En passant
+                    if (en_pass && en_pass == sq + d)
+                        try_move(sq, cap);
+                }
+            } else { // BLACK
+                // Push
+                if (b[sq - 10] == EMPTY) {
+                    if (sq / 10 == 3) { // rank 2 -> promotion
+                        try_move(sq, sq - 10, 0x0200);
+                        try_move(sq, sq - 10, 0x0100);
+                        try_move(sq, sq - 10, 0x0002);
+                        try_move(sq, sq - 10, 0x0001);
+                    } else {
+                        try_move(sq, sq - 10);
+                        if (sq / 10 == 8 && b[sq - 20] == EMPTY) // double push from rank 7
+                            try_move(sq, sq - 20);
                     }
                 }
+                // Captures
+                for (int d : {9, 11}) {
+                    const int cap = sq - d;
+                    if (b[cap] > 0 && b[cap] < BlackColor) { // white piece
+                        if (sq / 10 == 3) {
+                            try_move(sq, cap, 0x0200);
+                            try_move(sq, cap, 0x0100);
+                            try_move(sq, cap, 0x0002);
+                            try_move(sq, cap, 0x0001);
+                        } else {
+                            try_move(sq, cap);
+                        }
+                    }
+                    // En passant
+                    if (en_pass > 1 && en_pass == sq - d)
+                        try_move(sq, cap);
+                }
             }
+        } else if (figure == Knight) {
+            for (int d : {-21, -19, -12, -8, 8, 12, 19, 21}) {
+                if (can_land(sq + d)) try_move(sq, sq + d);
+            }
+        } else if (figure == King) {
+            castling();
+            for (int d : {-11, -10, -9, -1, 1, 9, 10, 11}) {
+                if (can_land(sq + d)) try_move(sq, sq + d);
+            }
+        } else if (figure == Queen) {
+            for (int d : {-11, -10, -9, -1, 1, 9, 10, 11}) slide(sq, d);
+        } else if (figure == Rook) {
+            for (int d : {-10, -1, 1, 10}) slide(sq, d);
+        } else if (figure == Bishop) {
+            for (int d : {-11, -9, 9, 11}) slide(sq, d);
         }
     }
 }
@@ -1360,37 +970,3 @@ void Table::is_really_legal() {
     unmake_table();
 }
 
-// Co-function of append_legal_moves()
-inline void Table::append_legal_moves_inner(const int dir_piece, const int i, const int j, const int kk) {
-    chess->legal_pointer++;
-    int move = 0;
-    move |= (j - 1) * 0x2000;
-    move |= (i - 2) * 0x0400;
-    move |= (j - 1 + kk * conv[21 + dir_piece][0]) * 0x0020;
-    move |= (i - 2 + kk * conv[21 + dir_piece][1]) * 0x0004;
-    chess->legal_moves[chess->legal_pointer] = move;
-    is_really_legal();
-}
-
-// Tries if a particular move is legal
-void Table::append_legal_moves(const int dir_piece, const int i, const int j, const int kk) {
-    // dir_piece : direction of the move
-    // kk : distance
-    const int tmp = i * 10 + j + kk * dir_piece;
-
-    // No more moves in that direction if field is not empty
-    if (pt[tmp] != EMPTY) {
-        end_direction = true;
-    }
-    if (chess->player_to_move == Chess::WHITE) {
-        // Tries move if field occupied by black or empty
-        if (pt[tmp] > BlackColor || pt[tmp] == EMPTY) {
-            append_legal_moves_inner(dir_piece, i, j, kk);
-        }
-    } else {
-        // Tries move if field occupied by white or empty
-        if (pt[tmp] < BlackColor) {
-            append_legal_moves_inner(dir_piece, i, j, kk);
-        }
-    }
-}
