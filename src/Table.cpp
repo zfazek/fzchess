@@ -67,9 +67,16 @@ void Table::reset_movelist() {
     chess->move_number = 0;
     // Compute the starting Zobrist key once; update_table() will maintain it incrementally
     const uint64_t start_key = chess->compute_zobrist_key(0);
+    // Compute the starting White-perspective material sum once
+    int start_material = 0;
+    for (int i = 20; i < 100; ++i) {
+        start_material += material_delta(chess->board[i]);
+    }
     for (int n = 0; n < MAX_MOVES; n++) {
         chess->movelist[n].zobrist_key = start_key;
+        chess->movelist[n].material_wp = start_material;
     }
+    chess->rebuild_pawn_list();
 }
 
 void Table::update_table(const int move, const bool print, const bool fake) {
@@ -248,31 +255,23 @@ void Table::update_table(const int move, const bool print, const bool fake) {
             }
         }
 
-        if (pm1->en_passant > 1) { // en passant possible
-            if (figure_from == WhitePawn) {
-                if (pm1->en_passant == square_from + 11 &&
-                    square_to - square_from == 11) {
-                    pm2->captured_figure = BlackPawn;
-                    pm2->ep_capture_sq = square_to - 10;
-                    *(pt2 + square_to - 10) = EMPTY;
-                } else if (pm1->en_passant == square_from + 9 &&
-                           square_to - square_from == 9) {
-                    pm2->captured_figure = BlackPawn;
-                    pm2->ep_capture_sq = square_to - 10;
-                    *(pt2 + square_to - 10) = EMPTY;
-                }
-            } else if (figure_from == BlackPawn) {
-                if (pm1->en_passant == square_from - 11 &&
-                    square_to - square_from == -11) {
-                    pm2->captured_figure = WhitePawn;
-                    pm2->ep_capture_sq = square_to + 10;
-                    *(pt2 + square_to + 10) = EMPTY;
-                } else if (pm1->en_passant == square_from - 9 &&
-                           square_to - square_from == -9) {
-                    pm2->captured_figure = WhitePawn;
-                    pm2->ep_capture_sq = square_to + 10;
-                    *(pt2 + square_to + 10) = EMPTY;
-                }
+        // En passant capture: the pawn moves diagonally onto the en_passant target
+        // square (which is empty), and an enemy pawn sits on the square it passed.
+        // We verify the enemy pawn is actually present to reject stale/coincidental
+        // en_passant values that merely match a normal capture's geometry.
+        if (pm1->en_passant > 1 && figure_to == EMPTY && square_to == pm1->en_passant) {
+            if (figure_from == WhitePawn &&
+                (square_to - square_from == 9 || square_to - square_from == 11) &&
+                *(pt2 + square_to - 10) == BlackPawn) {
+                pm2->captured_figure = BlackPawn;
+                pm2->ep_capture_sq = square_to - 10;
+                *(pt2 + square_to - 10) = EMPTY;
+            } else if (figure_from == BlackPawn &&
+                       (square_from - square_to == 9 || square_from - square_to == 11) &&
+                       *(pt2 + square_to + 10) == WhitePawn) {
+                pm2->captured_figure = WhitePawn;
+                pm2->ep_capture_sq = square_to + 10;
+                *(pt2 + square_to + 10) = EMPTY;
             }
         }
     }
@@ -362,6 +361,53 @@ void Table::update_table(const int move, const bool print, const bool fake) {
     }
     // --- End incremental Zobrist update ---
 
+    // --- Incremental pawn-list update (both fake and real moves, so unmake stays balanced) ---
+    {
+        const bool from_is_pawn = (figure_from == WhitePawn || figure_from == BlackPawn);
+        const int cap = pm2->captured_figure;
+        const bool cap_is_pawn = (cap == WhitePawn || cap == BlackPawn);
+
+        // 1. Remove a captured pawn first.
+        if (cap_is_pawn) {
+            if (pm2->ep_capture_sq != 0) {
+                chess->pawn_remove(pm2->ep_capture_sq); // en passant: pawn beside square_to
+            } else {
+                chess->pawn_remove(square_to);          // normal capture on square_to
+            }
+        }
+        // 2. The moving pawn.
+        if (from_is_pawn) {
+            if (pm2->promotion != 0) {
+                chess->pawn_remove(square_from);        // promoted: no longer a pawn
+            } else {
+                chess->pawn_move(square_from, square_to);
+            }
+        }
+    }
+    // --- End pawn-list update ---
+
+    // --- Incremental material (White-perspective) update ---
+    // Start from parent, subtract any captured piece, apply promotion delta.
+    if (!fake) {
+        int mat = pm1->material_wp;
+
+        // Captured piece removed from the board (regular or en passant).
+        // pm2->captured_figure holds the captured piece code (0 if none).
+        mat -= material_delta(pm2->captured_figure);
+
+        // Promotion: the moving pawn became the promoted piece on square_to.
+        // material gains (promoted_value - pawn_value) for the moving side.
+        if (pm2->promotion != 0) {
+            const int promoted_piece = *(pt2 + square_to); // final piece value at destination
+            // figure_from is the pawn that moved (WhitePawn/BlackPawn)
+            mat -= material_delta(figure_from);     // remove the pawn's value
+            mat += material_delta(promoted_piece);  // add the promoted piece's value
+        }
+
+        pm2->material_wp = mat;
+    }
+    // --- End incremental material update ---
+
     if (print) {
         print_table();
     }
@@ -417,6 +463,33 @@ void Table::unmake_table() {
             board[94] = EMPTY;
         }
     }
+
+    // --- Reverse the incremental pawn-list update (exact inverse of update_table,
+    //     applied in reverse order: undo the moving pawn first, then re-add captured) ---
+    {
+        const int moved = pm.figure_moved;
+        const bool from_is_pawn = (moved == WhitePawn || moved == BlackPawn);
+        const int cap = pm.captured_figure;
+        const bool cap_is_pawn = (cap == WhitePawn || cap == BlackPawn);
+
+        // 1. Undo the moving pawn.
+        if (from_is_pawn) {
+            if (pm.promotion != 0) {
+                chess->pawn_add(sq_from);               // pawn reappears at origin
+            } else {
+                chess->pawn_move(sq_to, sq_from);       // move back
+            }
+        }
+        // 2. Re-add the captured pawn.
+        if (cap_is_pawn) {
+            if (pm.ep_capture_sq != 0) {
+                chess->pawn_add(pm.ep_capture_sq);
+            } else {
+                chess->pawn_add(sq_to);
+            }
+        }
+    }
+    // --- End reverse pawn-list update ---
 
     --chess->move_number;
 }
@@ -582,6 +655,9 @@ void Table::setboard(const char *input) {
     if (black_bishop < 2) {
         chess->movelist[chess->move_number].black_double_bishops = 0;
     }
+    // Rebuild the pawn list for the parsed FEN board before applying any moves;
+    // update_table keeps it in sync incrementally from here on.
+    chess->rebuild_pawn_list();
     if (strstr(input, "moves")) {
         size_t m = strlen(input) - 1;
         for (size_t i = strstr(input, "moves") - input + 6; i < m; i++) {
@@ -600,10 +676,17 @@ void Table::setboard(const char *input) {
             chess->invert_player_to_move();
         }
     }
-    // (Re)compute the Zobrist key for the final position after all FEN moves are applied.
-    // update_table() maintains it incrementally from here on.
+    // (Re)compute the Zobrist key and material for the final position after all FEN
+    // moves are applied. update_table() maintains both incrementally from here on.
     chess->movelist[chess->move_number].zobrist_key =
         chess->compute_zobrist_key(chess->move_number);
+    {
+        int mat = 0;
+        for (int i = 20; i < 100; ++i) {
+            mat += material_delta(chess->board[i]);
+        }
+        chess->movelist[chess->move_number].material_wp = mat;
+    }
     print_table();
 }
 

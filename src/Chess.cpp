@@ -82,6 +82,22 @@ uint64_t Chess::compute_zobrist_key(int mn) const {
     return key;
 }
 
+// Rebuilds the pawn square list from the current board. Called after any full
+// board setup (reset_movelist, setboard); update_table/unmake_table keep it in
+// sync incrementally afterwards.
+void Chess::rebuild_pawn_list() {
+    n_pawns = 0;
+    for (int i = 0; i < 120; ++i) {
+        pawn_at[i] = -1;
+    }
+    for (int sq = 20; sq < 100; ++sq) {
+        const int f = board[sq];
+        if ((f & 127) == 1 && f != 0xff) { // pawn (white 0x01 or black 0x81)
+            pawn_add(sq);
+        }
+    }
+}
+
 void Chess::start_game() { // new
     table->reset_movelist();
     player_to_move = WHITE;

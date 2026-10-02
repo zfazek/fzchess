@@ -17,6 +17,7 @@
 // Parameters of the given position
 struct position_t {
     uint64_t zobrist_key;   // Incrementally maintained Zobrist hash
+    int material_wp;        // Incremental material from White's perspective (white - black)
     int color;
     int move_from;
     int move_to;
@@ -109,6 +110,34 @@ public:
     uint64_t zobrist_piece[2][7][120]; // [color 0=white/1=black][piece 1-6][square]
     uint64_t zobrist_enpassant[120];
     uint64_t zobrist_castle[16];
+
+    // Incrementally-maintained list of pawn squares (both colors), updated in
+    // Table::update_table / unmake_table. Lets evaluation iterate ~16 pawns
+    // instead of scanning all 80 board squares. pawn_at[sq] gives the index of
+    // square sq within pawn_sq[] (or -1), for O(1) removal.
+    int pawn_sq[16];
+    int pawn_at[120];
+    int n_pawns;
+
+    inline void pawn_add(int sq) {
+        pawn_at[sq] = n_pawns;
+        pawn_sq[n_pawns++] = sq;
+    }
+    inline void pawn_remove(int sq) {
+        const int idx = pawn_at[sq];
+        const int last = --n_pawns;
+        const int moved = pawn_sq[last];
+        pawn_sq[idx] = moved;
+        pawn_at[moved] = idx;
+        pawn_at[sq] = -1;
+    }
+    inline void pawn_move(int from, int to) {
+        const int idx = pawn_at[from];
+        pawn_sq[idx] = to;
+        pawn_at[to] = idx;
+        pawn_at[from] = -1;
+    }
+    void rebuild_pawn_list();
 
 #ifdef SORT_ALFARRAY
 

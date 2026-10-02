@@ -22,6 +22,18 @@ class Table {
     static constexpr int WhiteColor = 0;
     static constexpr int BlackColor = 128;
 
+    // Material value by figure index (empty, pawn, knight, bishop, rook, queen, king)
+    // Shared with Eval; used for incremental material tracking in update_table.
+    static constexpr int piece_value[7] = {0, 100, 330, 330, 500, 900, 0};
+
+    // White-perspective material delta for a piece code (field = figure | colorbit).
+    // Returns +value for a white piece, -value for a black piece, 0 for empty/offboard.
+    static inline int material_delta(int field) {
+        if (field == 0x00 || field == 0xff) return 0;
+        const int v = piece_value[field & 127];
+        return (field & 128) ? -v : v;
+    }
+
     // Possible direction of figure's move
     const int dir_rook[4] = {-10, -1, 1, 10};
     const int dir_knight[8] = {-21, -19, -12, -8, 8, 12, 19, 21};

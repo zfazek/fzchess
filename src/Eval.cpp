@@ -18,41 +18,38 @@ int Eval::evaluation_material(const int dpt) {
     const int *pt = chess->board;
     const struct position_t *pm = chess->movelist + chess->move_number;
 
-    // Calculate summa of material for end game threshold
-    // sm = sum_material(player_to_move);
+    // Hoist loop invariants out of the per-square scan
+    const int ptm = chess->player_to_move;
+    const int sm = chess->sm;
+    const int move_number = chess->move_number;
+    // Color bit of the side to move: WHITE pieces have bit 0 clear (0), BLACK set (128)
+    const int my_color_bit = (ptm == chess->WHITE) ? 0 : 128;
+
     random_window = 10;
 
-    // Goes through the table
-    for (int i = 20; i < 100; ++i) {
-        const int field = *(pt + i);
-        if (field > 0 && field < OFFBOARD) {
-            // c=1 : own figure is found, c=-1 opposite figure is found
-            const int figure_color = field & 128;
-            if ((chess->player_to_move == chess->WHITE && figure_color == 0) ||
-                (chess->player_to_move == chess->BLACK && figure_color == 128)) {
-                c = 1;
-            } else {
-                c = -1;
-            }
+    // Material from the side-to-move's perspective, maintained incrementally.
+    // material_wp is White's perspective; flip sign if Black is to move.
+    e += (ptm == chess->WHITE) ? pm->material_wp : -pm->material_wp;
 
-            // Evaulates King position (friendly pawn structure)
-            const int figure = field & 127;
-            if (figure == chess->table->King &&
-                chess->move_number > 6) {
-                e += c * evaluation_king(i, field);
-            }
-
-            // Evaulates Pawn structures
-            if (figure == chess->table->Pawn) {
-                e += c * evaluation_pawn(i, field, chess->sm);
-            }
-
-            // Calculates field material values
-            e += c * figure_value[figure];
-        }
+    // Pawn structure/advance terms: iterate only the pawns (incremental list),
+    // not all 80 board squares.
+    for (int k = 0; k < chess->n_pawns; ++k) {
+        const int i = chess->pawn_sq[k];
+        const int field = pt[i];
+        const int c = ((field & 128) == my_color_bit) ? 1 : -1;
+        e += c * evaluation_pawn(i, field, sm);
     }
 
-    if (chess->player_to_move == chess->WHITE) {
+    // King pawn-shield term: use the tracked king squares directly.
+    if (move_number > 6) {
+        const int wk = pm->pos_white_king;
+        const int bk = pm->pos_black_king;
+        const int wk_c = (my_color_bit == 0) ? 1 : -1;  // white king is "ours" iff we are white
+        e += wk_c * evaluation_king(wk, pt[wk]);
+        e += -wk_c * evaluation_king(bk, pt[bk]);
+    }
+
+    if (ptm == chess->WHITE) {
         c = 1;
     } else {
         c = -1;
@@ -65,7 +62,7 @@ int Eval::evaluation_material(const int dpt) {
     e += c * (pm->white_double_bishops - pm->black_double_bishops);
 
     // In the end game bonus if the enemy king is close
-    if (chess->sm < end_game_threshold) {
+    if (sm < end_game_threshold) {
         random_window = 2;
         evaking = 3 * abs((pm->pos_white_king / 10) - (pm->pos_black_king / 10));
         evaking += 3 * abs((pm->pos_white_king % 10) - (pm->pos_black_king % 10));
@@ -76,16 +73,16 @@ int Eval::evaluation_material(const int dpt) {
         }
 
         // force to the corner
-        if ((chess->player_to_move == chess->WHITE) && ((dpt % 2) == 1)) {
+        if ((ptm == chess->WHITE) && ((dpt % 2) == 1)) {
             evaking = 5 * (abs(5 - (pm->pos_black_king / 10)) +
                            abs(5 - (pm->pos_black_king % 10)));
-        } else if ((chess->player_to_move == chess->WHITE) && ((dpt % 2) == 0)) {
+        } else if ((ptm == chess->WHITE) && ((dpt % 2) == 0)) {
             evaking = -5 * (abs(5 - (pm->pos_white_king / 10)) +
                             abs(5 - (pm->pos_white_king % 10)));
-        } else if ((chess->player_to_move == chess->BLACK) && ((dpt % 2) == 0)) {
+        } else if ((ptm == chess->BLACK) && ((dpt % 2) == 0)) {
             evaking = -5 * (abs(5 - (pm->pos_black_king / 10)) +
                             abs(5 - (pm->pos_black_king % 10)));
-        } else if ((chess->player_to_move == chess->BLACK) && ((dpt % 2) == 1)) {
+        } else if ((ptm == chess->BLACK) && ((dpt % 2) == 1)) {
             evaking = 5 * (abs(5 - (pm->pos_white_king / 10)) +
                            abs(5 - (pm->pos_white_king % 10)));
         }
@@ -177,10 +174,11 @@ int Eval::evaluation_only_end_game(const int dpt) {
 int Eval::evaluation_king(const int idx, const int field) {
     int e = 0;
     const int *pt = chess->board;
-    const int *pdir = chess->table->dir_king;
-    for (int k = 0; k < 8; ++k, ++pdir) {
-        if (*(pt + idx + *pdir) == (field & 128) + chess->table->Pawn) {
-            e += chess->table->eval->friendly_pawn;
+    const int target = (field & 128) + chess->table->Pawn; // friendly pawn value
+    static const int kdir[8] = {-11, -10, -9, -1, 1, 9, 10, 11};
+    for (int k = 0; k < 8; ++k) {
+        if (pt[idx + kdir[k]] == target) {
+            e += friendly_pawn;
         }
     }
     return e;
