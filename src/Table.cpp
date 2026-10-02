@@ -609,64 +609,91 @@ void Table::setboard(const char *input) {
 
 // Returns if the figure of color is attacked or not
 bool Table::is_attacked(const int field, const int color) {
-    const int * const ptablelist = chess->board;
-    int QueenColor, RookColor, KingColor, BishopColor, KnightColor;
+    const int * const b = chess->board;
+
+    // Piece values for the attacking side (opposite of `color`)
+    int PawnA, PawnB, Knight, Bishop, Rook, Queen, King;
     if (color == Chess::WHITE) {
-        if (ptablelist[field + 9] == BlackPawn || ptablelist[field + 11] == BlackPawn) {
+        // White king is at `field` — check if attacked by Black
+        PawnA   = BlackPawn;   // black pawn attacks from above: field+9, field+11
+        PawnB   = BlackPawn;
+        Knight  = BlackKnight;
+        Bishop  = BlackBishop;
+        Rook    = BlackRook;
+        Queen   = BlackQueen;
+        King    = BlackKing;
+        // Pawn attack squares
+        if (__builtin_expect(b[field + 9] == BlackPawn || b[field + 11] == BlackPawn, 0))
             return true;
-        }
-        QueenColor = BlackQueen;
-        KingColor = BlackKing;
-        RookColor = BlackRook;
-        BishopColor = BlackBishop;
-        KnightColor = BlackKnight;
     } else {
-        if (ptablelist[field - 9] == WhitePawn || ptablelist[field - 11] == WhitePawn) {
+        // Black king is at `field` — check if attacked by White
+        Knight  = WhiteKnight;
+        Bishop  = WhiteBishop;
+        Rook    = WhiteRook;
+        Queen   = WhiteQueen;
+        King    = WhiteKing;
+        if (__builtin_expect(b[field - 9] == WhitePawn || b[field - 11] == WhitePawn, 0))
             return true;
-        }
-        QueenColor = WhiteQueen;
-        KingColor = WhiteKing;
-        RookColor = WhiteRook;
-        BishopColor = WhiteBishop;
-        KnightColor = WhiteKnight;
     }
-    for (int k = 0; k < 4; k++) {
-        int kk = 1;
-        while (ptablelist[field + kk * dir_rook[k]] == EMPTY) {
-            ++kk;
-        }
-        const int coord = field + kk * dir_rook[k];
-        if (ptablelist[coord] == RookColor) {
-            return true;
-        }
-        if (ptablelist[coord] == QueenColor) {
-            return true;
-        }
-        if (kk == 1 && ptablelist[coord] == KingColor) {
-            return true;
-        }
+
+    // Rook/Queen rays (4 directions: up, down, left, right)
+    {
+        int sq;
+        // direction +10
+        sq = field + 10;
+        while (b[sq] == EMPTY) sq += 10;
+        if (__builtin_expect(b[sq] == Rook || b[sq] == Queen, 0)) return true;
+        if (sq == field + 10 && b[sq] == King) return true;
+        // direction -10
+        sq = field - 10;
+        while (b[sq] == EMPTY) sq -= 10;
+        if (__builtin_expect(b[sq] == Rook || b[sq] == Queen, 0)) return true;
+        if (sq == field - 10 && b[sq] == King) return true;
+        // direction +1
+        sq = field + 1;
+        while (b[sq] == EMPTY) sq += 1;
+        if (__builtin_expect(b[sq] == Rook || b[sq] == Queen, 0)) return true;
+        if (sq == field + 1 && b[sq] == King) return true;
+        // direction -1
+        sq = field - 1;
+        while (b[sq] == EMPTY) sq -= 1;
+        if (__builtin_expect(b[sq] == Rook || b[sq] == Queen, 0)) return true;
+        if (sq == field - 1 && b[sq] == King) return true;
     }
-    for (int k = 0; k < 4; k++) {
-        int kk = 1;
-        while (ptablelist[field + kk * dir_bishop[k]] == EMPTY) {
-            ++kk;
-        }
-        const int coord = field + kk * dir_bishop[k];
-        if (ptablelist[coord] == BishopColor) {
-            return true;
-        }
-        if (ptablelist[coord] == QueenColor) {
-            return true;
-        }
-        if (kk == 1 && ptablelist[coord] == KingColor) {
-            return true;
-        }
+
+    // Bishop/Queen rays (4 diagonal directions)
+    {
+        int sq;
+        // direction +11
+        sq = field + 11;
+        while (b[sq] == EMPTY) sq += 11;
+        if (__builtin_expect(b[sq] == Bishop || b[sq] == Queen, 0)) return true;
+        if (sq == field + 11 && b[sq] == King) return true;
+        // direction -11
+        sq = field - 11;
+        while (b[sq] == EMPTY) sq -= 11;
+        if (__builtin_expect(b[sq] == Bishop || b[sq] == Queen, 0)) return true;
+        if (sq == field - 11 && b[sq] == King) return true;
+        // direction +9
+        sq = field + 9;
+        while (b[sq] == EMPTY) sq += 9;
+        if (__builtin_expect(b[sq] == Bishop || b[sq] == Queen, 0)) return true;
+        if (sq == field + 9 && b[sq] == King) return true;
+        // direction -9
+        sq = field - 9;
+        while (b[sq] == EMPTY) sq -= 9;
+        if (__builtin_expect(b[sq] == Bishop || b[sq] == Queen, 0)) return true;
+        if (sq == field - 9 && b[sq] == King) return true;
     }
-    for (int k = 0; k < 8; k++) {
-        if (ptablelist[field + dir_knight[k]] == KnightColor) {
-            return true;
-        }
-    }
+
+    // Knight attacks (8 squares)
+    if (__builtin_expect(
+        b[field - 21] == Knight || b[field - 19] == Knight ||
+        b[field - 12] == Knight || b[field -  8] == Knight ||
+        b[field +  8] == Knight || b[field + 12] == Knight ||
+        b[field + 19] == Knight || b[field + 21] == Knight, 0))
+        return true;
+
     return false;
 }
 
