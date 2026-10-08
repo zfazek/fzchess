@@ -584,7 +584,7 @@ void Table::setboard(const char *input) {
     n++;
     n++;
     chess->movelist[chess->move_number].castle = 0;
-    while (input[n] != ' ') {
+    while (input[n] != ' ' && input[n] != '\0' && input[n] != '\n') {
         if (input[n] == '-') {
             chess->movelist[chess->move_number].castle = 0;
         }
@@ -618,11 +618,19 @@ void Table::setboard(const char *input) {
             1 + input[n] - 'a' + (input[n + 1] - '1' + 2) * 10;
         n++;
     }
-    n++;
-    n++;
+    // Advance past the en passant field and the single separating space, but
+    // stop at end-of-string. A FEN may legally omit the halfmove/fullmove
+    // counters (e.g. "... w - -"); without this guard the loop below scanned
+    // past the '\0' into arbitrary memory, leaving the engine unresponsive.
+    if (input[n] != '\0' && input[n] != '\n') {
+        n++; // past the en passant char
+    }
+    if (input[n] == ' ') {
+        n++; // past the separating space
+    }
     chess->movelist[chess->move_number].not_pawn_move = 0;
     int factor = 1;
-    while (input[n] != ' ') {
+    while (input[n] != ' ' && input[n] != '\0' && input[n] != '\n') {
         chess->movelist[chess->move_number].not_pawn_move =
             chess->movelist[chess->move_number].not_pawn_move * factor +
             (int)(input[n] - '0');

@@ -1,0 +1,34 @@
+### PERFT ###
+depth: 1 nodes: 20
+depth: 2 nodes: 400
+depth: 3 nodes: 8902
+depth: 4 nodes: 197281
+depth: 1 nodes: 20
+depth: 2 nodes: 400
+depth: 3 nodes: 8902
+depth: 4 nodes: 197281
+depth: 1 nodes: 48
+depth: 2 nodes: 2039
+depth: 3 nodes: 97862
+depth: 4 nodes: 4085603
+depth: 1 nodes: 14
+depth: 2 nodes: 191
+depth: 3 nodes: 2812
+depth: 4 nodes: 43238
+depth: 5 nodes: 674624
+depth: 1 nodes: 6
+depth: 2 nodes: 264
+depth: 3 nodes: 9467
+depth: 4 nodes: 422333
+depth: 5 nodes: 15833292
+### BESTMOVE ###
+--- position startpos (depth 4) ---
+bestmove d2d4
+--- position fen r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1 (depth 4) ---
+bestmove e2a6
+--- position fen 8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1 (depth 4) ---
+bestmove b4f4
+--- position fen 1k1r4/pp1b1R2/3q2pp/4p3/2B5/4Q3/PPP2B2/2K5 b - - 0 1 (depth 4) ---
+bestmove a7a5
+--- position fen 3r1k2/4npp1/1ppr3p/p6P/P2PPPP1/1NR5/5K2/2R5 w - - 0 1 (depth 4) ---
+bestmove e4e5
