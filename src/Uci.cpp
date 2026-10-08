@@ -12,6 +12,11 @@ Uci::Uci(Chess *ch) : chess(ch) {}
 void Uci::position_received(const char *input) {
     static char move_old[6];
     if (!strstr(input, "move")) {
+        // Bare "position startpos" (no "moves" list): per the UCI spec the
+        // "moves" section is optional and means "set up the start position with
+        // no moves played". Reset the board to the opening instead of ignoring
+        // the command.
+        chess->start_game();
         return;
     }
     strncpy(move_old, "     ", 6);
