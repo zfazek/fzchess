@@ -60,21 +60,33 @@ void Uci::position_received(const char *input) {
     while (true) {
         char *ret = fgets(input, 1000, stdin);
         if (ret == nullptr) {
-            // EOF or read error: wait for any running search, then exit.
+            // EOF or read error: abort any running search, then exit.
             // Without this, the stale `input` buffer (e.g. a prior "go") was
             // re-processed forever, causing infinite self-play and a
             // move_number overflow crash past MAX_MOVES.
+            chess->stop_received = true;
             if (th_make_move.joinable()) {
                 th_make_move.join();
             }
             exit(EXIT_SUCCESS);
         }
         if (ret && strstr(input, "quit")) {
+            chess->stop_received = true;
+            if (th_make_move.joinable()) {
+                th_make_move.join();
+            }
             exit(EXIT_SUCCESS);
         }
         if (ret && strstr(input, "stop")) {
+            // Signal the running search to abort. The search polls
+            // stop_received and unwinds; we then join below. We do NOT join
+            // before setting the flag, otherwise stop would only take effect
+            // after the search had already finished on its own.
             chess->stop_received = true;
         }
+        // Reap a finished (or now-stopping) search before starting a new one.
+        // A new search must never be launched while th_make_move is still
+        // running, so join here is required before any "go" below.
         if (th_make_move.joinable()) {
             th_make_move.join();
         }

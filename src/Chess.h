@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -100,7 +101,7 @@ public:
     struct position_t movelist[MAX_MOVES];
     struct move_t root_moves[MAX_LEGAL_MOVES];
 
-    bool stop_received = false;
+    std::atomic<bool> stop_received{false};
     bool sort_alfarray = true;
     uint8_t search_age = 0; // Incremented each make_move() to invalidate TT entries from prior searches
 
