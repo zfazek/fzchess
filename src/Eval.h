@@ -8,12 +8,12 @@ class Chess;
 
 class Eval {
   public:
-    Eval(Chess *chess);
+    Eval();
 
-    int evaluation(const int e_legal_pointer, const int dpt);
-    int evaluation_material(const int dpt);
-    int evaluation_only_end_game(const int dpt);
-    int sum_material(const int color);
+    int evaluation(Chess &chess, const int e_legal_pointer, const int dpt);
+    int evaluation_material(const Chess &chess, const int dpt);
+    int evaluation_only_end_game(Chess &chess, const int dpt);
+    int sum_material(const Chess &chess, const int color);
 
     const int DRAW = 0;
     const int LOST = -22000;
@@ -31,14 +31,13 @@ class Eval {
     std::unique_ptr<TranspositionTable> tt;
 
   private:
-    Chess *chess;
-
     int random_window;
 
     // Values for evaluation
     // empty, pawn, knight, bishop, rook, queen, king
     const int figure_value[7] = {0, 100, 330, 330, 500, 900, 0};
 
-    int evaluation_king(const int idx, const int field);
-    int evaluation_pawn(const int idx, const int field, const int sm);
+    int evaluation_king(const Chess &chess, const int idx, const int field);
+    int evaluation_pawn(const Chess &chess, const int idx, const int field,
+                        const int sm);
 };

@@ -8,7 +8,7 @@
 #include "Util.h"
 
 Table::Table(Chess *ch) : chess(ch) {
-    eval = std::make_unique<Eval>(chess);
+    eval = std::make_unique<Eval>();
 }
 
 // Resets the parameters and the table

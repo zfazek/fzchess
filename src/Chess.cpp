@@ -316,7 +316,7 @@ int Chess::alfabeta(int dpt, int alfa, int beta) {
         // If last ply->evaluating
         if ((dpt >= depth && movelist[move_number].further == 0) || dpt >= seldepth) {
             last_ply = true;
-            u = table->eval->evaluation(legal_pointer, dpt);
+            u = table->eval->evaluation(*this, legal_pointer, dpt);
             table->unmake_table();
         } else { // Not last ply
             if (table->third_occurance() ||
@@ -325,7 +325,7 @@ int Chess::alfabeta(int dpt, int alfa, int beta) {
                 u = table->eval->DRAW;
                 table->unmake_table();
             } else {
-                u = table->eval->evaluation_only_end_game(dpt);
+                u = table->eval->evaluation_only_end_game(*this, dpt);
                 if (u == 32767) { // not end
                     invert_player_to_move();
                     u = -alfabeta(dpt + 1, -beta, -alfa);
