@@ -25,6 +25,11 @@ const BLACK_QUEEN: i32 = 0x85;
 const WHITE_COLOR: i32 = 0;
 const BLACK_COLOR: i32 = 128;
 
+/// King-castled evaluation bonus, set in a position slot when a side castles.
+/// Matches C++ `Eval::king_castled`. Lives here because `update_table` writes
+/// it, but it is purely an evaluation term (not used by move generation).
+const KING_CASTLED: i32 = 40;
+
 /// Encode a move from two board indices + optional promotion bits.
 /// Port of the `encode` lambda in C++ `list_legal_moves`.
 #[inline]
@@ -357,6 +362,21 @@ impl Board {
         pm2.captured_figure = figure_to;
         pm2.figure_moved = figure_from;
         pm2.ep_capture_sq = 0;
+        // Eval-only fields carried from the parent (king-castled bonus flags).
+        // The double-bishop bonus is dropped for a side when its bishop is
+        // captured, matching C++ update_table.
+        pm2.white_king_castled = pm1.white_king_castled;
+        pm2.black_king_castled = pm1.black_king_castled;
+        if figure_to == WHITE_BISHOP {
+            pm2.white_double_bishops = 0;
+            pm2.black_double_bishops = pm1.black_double_bishops;
+        } else if figure_to == BLACK_BISHOP {
+            pm2.white_double_bishops = pm1.white_double_bishops;
+            pm2.black_double_bishops = 0;
+        } else {
+            pm2.white_double_bishops = pm1.white_double_bishops;
+            pm2.black_double_bishops = pm1.black_double_bishops;
+        }
 
         // Promotion.
         if (mv & 0x0303) > 0 {
@@ -386,9 +406,11 @@ impl Board {
                 pm2.pos_white_king = square_to as i32;
                 pm2.castle &= 12;
                 if square_from == 25 && square_to == 27 {
+                    pm2.white_king_castled = KING_CASTLED;
                     self.board[26] = WHITE_ROOK;
                     self.board[28] = EMPTY;
                 } else if square_from == 25 && square_to == 23 {
+                    pm2.white_king_castled = KING_CASTLED;
                     self.board[24] = WHITE_ROOK;
                     self.board[21] = EMPTY;
                 }
@@ -396,9 +418,11 @@ impl Board {
                 pm2.pos_black_king = square_to as i32;
                 pm2.castle &= 3;
                 if square_from == 95 && square_to == 97 {
+                    pm2.black_king_castled = KING_CASTLED;
                     self.board[96] = BLACK_ROOK;
                     self.board[98] = EMPTY;
                 } else if square_from == 95 && square_to == 93 {
+                    pm2.black_king_castled = KING_CASTLED;
                     self.board[94] = BLACK_ROOK;
                     self.board[91] = EMPTY;
                 }

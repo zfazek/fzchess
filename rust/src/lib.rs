@@ -13,6 +13,7 @@
 #![allow(dead_code)]
 
 pub mod board;
+pub mod eval;
 pub mod movegen;
 pub mod perft;
 pub mod types;

@@ -32,6 +32,10 @@ const BLACK_KING: i32 = 0x86;
 const WHITE_COLOR: i32 = 0; // color bit value for white pieces
 const BLACK_COLOR: i32 = 128; // color bit value for black pieces
 
+/// Double-bishop evaluation bonus seeded into position slots. Matches C++
+/// `Eval::double_bishops`. An evaluation term only (not used by move gen).
+const DOUBLE_BISHOPS: i32 = 50;
+
 /// Full board state needed for perft. A trimmed analogue of the C++ `Chess`
 /// object: the mailbox board, the per-ply state stack, side to move, and the
 /// scratch legal-move list.
@@ -155,6 +159,11 @@ impl Board {
             m.castle = 15;
             m.pos_white_king = 25;
             m.pos_black_king = 95;
+            // Startpos has two bishops per side; the double-bishop eval bonus
+            // is seeded in every slot (C++ reset_movelist) and dropped later
+            // when a bishop is captured.
+            m.white_double_bishops = DOUBLE_BISHOPS;
+            m.black_double_bishops = DOUBLE_BISHOPS;
         }
         self.board = start;
         self.move_number = 0;
@@ -355,6 +364,25 @@ impl Board {
             }
         }
 
+        // Double-bishop eval bonus: reset_startpos seeded 50 for both sides;
+        // drop it for a side that does not actually have two bishops in the
+        // parsed position (port of the bishop count in C++ setboard).
+        let mut white_bishops = 0;
+        let mut black_bishops = 0;
+        for i in 20..100 {
+            match self.board[i] {
+                WHITE_BISHOP => white_bishops += 1,
+                BLACK_BISHOP => black_bishops += 1,
+                _ => {}
+            }
+        }
+        if white_bishops < 2 {
+            self.movelist[self.move_number].white_double_bishops = 0;
+        }
+        if black_bishops < 2 {
+            self.movelist[self.move_number].black_double_bishops = 0;
+        }
+
         // Initialise incremental bookkeeping for the parsed position and seed
         // the current + prior move slots so the search can read them.
         self.rebuild_pawn_list();
@@ -366,6 +394,55 @@ impl Board {
 
     pub fn invert_player_to_move(&mut self) {
         self.player_to_move = -self.player_to_move;
+    }
+
+    /// Insufficient-material draw test. Port of C++ `Table::is_not_enough_material`.
+    pub fn is_not_enough_material(&self) -> bool {
+        let mut white_knight = 0;
+        let mut white_bishop = 0;
+        let mut black_knight = 0;
+        let mut black_bishop = 0;
+        for i in 20..100 {
+            let c = self.board[i];
+            if c == 0 || c == OFFBOARD {
+                continue;
+            }
+            match c {
+                WHITE_PAWN | BLACK_PAWN => return false, // 0x01 / 0x81
+                0x05 | 0x85 => return false,             // queen
+                WHITE_ROOK | BLACK_ROOK => return false, // 0x04 / 0x84
+                WHITE_KNIGHT => white_knight += 1,
+                BLACK_KNIGHT => black_knight += 1,
+                WHITE_BISHOP => white_bishop += 1,
+                BLACK_BISHOP => black_bishop += 1,
+                _ => {}
+            }
+        }
+        if white_bishop == 2 || black_bishop == 2 {
+            return false;
+        }
+        if white_knight + white_bishop > 1 || black_knight + black_bishop > 1 {
+            return false;
+        }
+        true
+    }
+
+    /// Threefold-repetition test using the incremental Zobrist key. Port of
+    /// C++ `Table::third_occurance`.
+    pub fn third_occurance(&self) -> bool {
+        if self.move_number < 6 {
+            return false;
+        }
+        let current_key = self.movelist[self.move_number].zobrist_key;
+        let mut occurance = 0;
+        let mut i = self.move_number as i32 - 2;
+        while i >= 0 && occurance < 2 {
+            if self.movelist[i as usize].zobrist_key == current_key {
+                occurance += 1;
+            }
+            i -= 2;
+        }
+        occurance >= 2
     }
 
     /// `perft(depth)`: count leaf nodes of the legal move tree. Port of C++
