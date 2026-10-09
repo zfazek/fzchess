@@ -396,6 +396,89 @@ impl Board {
         self.player_to_move = -self.player_to_move;
     }
 
+    /// Render the current position as a FEN string. Port of C++
+    /// `Chess::get_fen(move_number)`.
+    pub fn get_fen(&self) -> String {
+        const WHITE_CHARS: [char; 7] = ['.', 'P', 'N', 'B', 'R', 'Q', 'K'];
+        const BLACK_CHARS: [char; 7] = ['.', 'p', 'n', 'b', 'r', 'q', 'k'];
+        let mn = self.move_number;
+        let pos = &self.movelist[mn];
+        let mut fen = String::new();
+
+        // 1. Piece placement, rank 8 (y=9) down to rank 1 (y=2).
+        for rank in (2..=9).rev() {
+            let mut empty = 0;
+            for file in 1..=8 {
+                let piece = self.board[(rank * 10 + file) as usize];
+                if piece == EMPTY {
+                    empty += 1;
+                } else {
+                    if empty > 0 {
+                        fen.push((b'0' + empty) as char);
+                        empty = 0;
+                    }
+                    let pt = (piece & 0x7f) as usize;
+                    let is_black = (piece & 0x80) != 0;
+                    if (1..=6).contains(&pt) {
+                        fen.push(if is_black { BLACK_CHARS[pt] } else { WHITE_CHARS[pt] });
+                    }
+                }
+            }
+            if empty > 0 {
+                fen.push((b'0' + empty) as char);
+            }
+            if rank > 2 {
+                fen.push('/');
+            }
+        }
+
+        // 2. Active color.
+        let white_to_move = if mn == 0 {
+            self.player_to_move == WHITE
+        } else {
+            pos.color == BLACK
+        };
+        fen.push_str(if white_to_move { " w " } else { " b " });
+
+        // 3. Castling availability.
+        let mut castling = String::new();
+        if pos.castle & 1 != 0 {
+            castling.push('K');
+        }
+        if pos.castle & 2 != 0 {
+            castling.push('Q');
+        }
+        if pos.castle & 4 != 0 {
+            castling.push('k');
+        }
+        if pos.castle & 8 != 0 {
+            castling.push('q');
+        }
+        fen.push_str(if castling.is_empty() { "-" } else { &castling });
+
+        // 4. En passant target square.
+        fen.push(' ');
+        if pos.en_passant > 0 {
+            let ep_file = pos.en_passant % 10;
+            let ep_rank = pos.en_passant / 10;
+            fen.push((b'a' + (ep_file - 1) as u8) as char);
+            fen.push((b'1' + (ep_rank - 2) as u8) as char);
+        } else {
+            fen.push('-');
+        }
+
+        // 5. Halfmove clock.
+        fen.push(' ');
+        fen.push_str(&pos.not_pawn_move.to_string());
+
+        // 6. Fullmove number.
+        let fullmove = if mn <= 1 { 1 } else { mn / 2 + 1 };
+        fen.push(' ');
+        fen.push_str(&fullmove.to_string());
+
+        fen
+    }
+
     /// Insufficient-material draw test. Port of C++ `Table::is_not_enough_material`.
     pub fn is_not_enough_material(&self) -> bool {
         let mut white_knight = 0;

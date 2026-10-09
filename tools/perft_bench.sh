@@ -6,13 +6,12 @@
 # so it isolates move-gen throughput. Both engines produce identical node counts
 # (verified by tools/golden.sh), so this measures speed on the same work.
 #
-# IMPORTANT CAVEAT — not a pure like-for-like "move generator" comparison:
-# the Rust perft port intentionally omits the incremental Zobrist-key, material,
-# and pawn-list bookkeeping that the C++ `update_table` performs on every move
-# (those feed eval/repetition, which perft never reads). So the Rust side does
-# strictly less work per node. Treat these numbers as "how fast is each engine's
-# perft", not "Rust movegen is N% faster than C++ movegen". The gap will narrow
-# once that bookkeeping is ported for the search/eval slices.
+# IMPORTANT CAVEAT — the two engines do slightly different per-node work:
+# both skip eval/repetition/material/Zobrist/pawn-list bookkeeping on the perft
+# path (the Rust port gates all of it behind its `fake` flag; perft never reads
+# it). The remaining difference is genuine move-generation + make/unmake speed,
+# so this is a reasonably fair movegen comparison. Node counts are identical
+# (verified by tools/golden.sh), so both engines do the same search work.
 #
 # Usage: tools/perft_bench.sh [runs]
 #   runs: how many times to repeat each case (default 3; reports the best/min
@@ -87,8 +86,8 @@ main() {
       "$label" "$depth" "$nodes" "$cms" "$rms" "$cnps" "$rnps" "$speedup"
   done
   echo
-  echo "NOTE: Rust perft omits Zobrist/material/pawn-list bookkeeping that C++"
-  echo "      maintains per move; see header. Not a pure movegen-vs-movegen ratio."
+  echo "NOTE: both engines skip eval/bookkeeping on the perft path, so this is a"
+  echo "      reasonably fair move-generation + make/unmake comparison. See header."
 }
 
 main

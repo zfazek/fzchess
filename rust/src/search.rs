@@ -295,6 +295,42 @@ impl<'a> Search<'a> {
                     } else {
                         self.mate_score = 0;
                     }
+                    // Emit the multipv/score/pv line (C++ format). mate score
+                    // conversion matches C++: uu = (22001-u)/2 for u>0 else
+                    // -(u+22001)/2, clamped to +/-1 if 0.
+                    let line_len = self.best_line[dpt as usize].length;
+                    let mut pv = String::new();
+                    for b in 1..=line_len {
+                        pv.push_str(&crate::util::move2str(self.best_line[dpt as usize].moves[b]));
+                        pv.push(' ');
+                    }
+                    if u.abs() > 20000 {
+                        let mut uu = if u > 0 {
+                            (22001 - u) / 2
+                        } else {
+                            -(u + 22001) / 2
+                        };
+                        if uu == 0 {
+                            uu = if u > 0 { 1 } else { -1 };
+                        }
+                        println!(
+                            "info multipv 1 depth {} seldepth {} score mate {} nodes {} pv {}",
+                            self.depth.max(dpt),
+                            self.seldepth,
+                            uu,
+                            self.nodes,
+                            pv
+                        );
+                    } else {
+                        println!(
+                            "info multipv 1 depth {} seldepth {} score cp {} nodes {} pv {}",
+                            self.depth.max(dpt),
+                            self.seldepth,
+                            u,
+                            self.nodes,
+                            pv
+                        );
+                    }
                 }
             }
 
@@ -325,26 +361,70 @@ impl<'a> Search<'a> {
         value
     }
 
-    /// Run an iterative-deepening search up to `target_depth` and return the
-    /// best move. Iterating from depth 1 is required so the root move list
-    /// (`root_moves`) is populated and ordered for `calculate_evarray` at
-    /// deeper iterations. The full driver + UCI output is task 5; this is the
-    /// task-4 entry point used by tests.
-    pub fn search_fixed_depth(&mut self, target_depth: i32) -> i32 {
+    /// Iterative-deepening driver with UCI output. Port of C++
+    /// `Chess::make_move` for the fixed-depth (`go depth N`) case.
+    ///
+    /// `gui_depth` is the target depth. `default_seldepth` matches the C++ field
+    /// (0 for a UCI `go depth`, so `seldepth == depth`). `break_if_mate_found`
+    /// stops early once a mate score is found. Emits `FEN:`, per-depth `info`
+    /// lines, and the final `bestmove`, formatted as the C++ engine does so the
+    /// output can be diffed against the golden baseline. Returns the best move.
+    pub fn make_move(
+        &mut self,
+        gui_depth: i32,
+        default_seldepth: i32,
+        break_if_mate_found: bool,
+    ) -> i32 {
+        const MAX: i32 = 22767;
         self.search_age = self.search_age.wrapping_add(1);
         for p in 0..MAX_PLY {
             self.killer_moves[p] = [0, 0];
         }
-        self.best_move = 0;
-        let max = 22767;
-        for d in 1..=target_depth {
-            self.depth = d;
-            self.seldepth = d + 4;
-            self.nodes = 0;
-            self.tt_nodes = 0;
-            self.alfabeta(1, -max, max);
+        self.nodes = 0;
+        self.tt_nodes = 0;
+
+        // Ensure best_move is a legal move before searching (matches C++).
+        self.board.list_legal_moves();
+        if self.board.legal_pointer >= 0 {
+            self.best_move = self.board.legal_moves[0];
         }
+        println!("FEN: {}", self.board.get_fen());
+
+        let mut depth = 1;
+        loop {
+            self.depth = depth;
+            self.seldepth = depth + default_seldepth;
+            println!("info depth {}", depth);
+            self.alfabeta(1, -MAX, MAX);
+
+            // Per-iteration summary line (time/nps omitted/zeroed: deterministic
+            // output for the golden diff, which only checks the bestmove line).
+            println!(
+                "info depth {} seldepth {} nodes {}",
+                depth, self.seldepth, self.nodes
+            );
+
+            if depth == 1 && self.nof_legal_root_moves == 1 {
+                break;
+            }
+            if self.mate_score > 20000 && break_if_mate_found {
+                break;
+            }
+            if depth == gui_depth {
+                break;
+            }
+            depth += 1;
+        }
+
+        println!("bestmove {}", crate::util::move2str(self.best_move));
         self.best_move
+    }
+
+    /// Convenience entry point for tests: run `make_move` quietly-ish at a fixed
+    /// depth with the golden settings (`default_seldepth = 0`,
+    /// `break_if_mate_found = true`) and return the best move.
+    pub fn search_fixed_depth(&mut self, target_depth: i32) -> i32 {
+        self.make_move(target_depth, 0, true)
     }
 }
 

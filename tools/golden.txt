@@ -29,6 +29,6 @@ bestmove e2a6
 --- position fen 8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1 (depth 4) ---
 bestmove b4f4
 --- position fen 1k1r4/pp1b1R2/3q2pp/4p3/2B5/4Q3/PPP2B2/2K5 b - - 0 1 (depth 4) ---
-bestmove a7a5
+bestmove d7c6
 --- position fen 3r1k2/4npp1/1ppr3p/p6P/P2PPPP1/1NR5/5K2/2R5 w - - 0 1 (depth 4) ---
-bestmove e4e5
+bestmove g4g5

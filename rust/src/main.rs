@@ -3,7 +3,9 @@
 //! Engine logic lives in the library (see `lib.rs`); this binary only parses
 //! arguments, formats output, and (for the bench subcommand) does timing.
 
+use fzchess::board::Board;
 use fzchess::perft::{PerftCase, SUITE};
+use fzchess::search::Search;
 use std::time::Instant;
 
 /// Print one perft case in the C++ engine's format ("depth: N nodes: M"), one
@@ -67,8 +69,25 @@ fn main() {
             };
             run_perft_bench(&fen, depth);
         }
+        Some("go") => {
+            // Usage: fzchess go <depth> [fen...]
+            // Fixed-depth search; prints the C++-style info/bestmove lines so the
+            // bestmove can be diffed against the golden baseline.
+            let depth: i32 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(4);
+            let mut board = Board::new();
+            if args.len() > 3 {
+                let fen = args[3..].join(" ");
+                if fen != "startpos" {
+                    board.setboard(&fen);
+                }
+            }
+            let mut search = Search::new(&mut board);
+            // default_seldepth = 0, break_if_mate_found = true: matches the C++
+            // UCI `go depth` path that produced the golden baseline.
+            search.make_move(depth, 0, true);
+        }
         _ => eprintln!(
-            "usage:\n  fzchess perft                     # run the perft suite\n  fzchess perft-bench <depth> [fen] # time a single perft"
+            "usage:\n  fzchess perft                     # run the perft suite\n  fzchess perft-bench <depth> [fen] # time a single perft\n  fzchess go <depth> [fen]          # fixed-depth search, prints bestmove"
         ),
     }
 }
