@@ -16,15 +16,13 @@ use crate::board::Board;
 use crate::eval::{DRAW, LOST, NOT_END};
 use crate::tt::TranspositionTable;
 use crate::types::{Move, MAX_LEGAL_MOVES};
+use crate::util::get_ms;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 const MAX_PLY: usize = 128;
 /// Initial `value` floor in alfabeta (matches C++ -22767).
 const NEG_INF: i32 = -22767;
-/// End-game threshold material passed to eval. The C++ `sm` field is never
-/// assigned and is 0 at runtime, so eval always runs with sm == 0 (this makes
-/// the end-game king-distance and pawn-advance terms always active). Passing 0
-/// here is required to reproduce the golden bestmoves — see the eval notes.
-const SM: i32 = 0;
 
 /// A principal-variation line: `moves[1..=length]` is the line, `value` its score.
 #[derive(Clone)]
@@ -69,10 +67,35 @@ pub struct Search<'a> {
     pub mate_score: i32,
     /// Toggle MVV-LVA ordering (C++ `sort_alfarray`, default on).
     pub sort_alfarray: bool,
+
+    /// Summed material of the side to move at the root, used by eval as the
+    /// end-game threshold (`sm`). Computed once per `make_move`. (The C++ engine
+    /// intended this but left its `sm` field unassigned at 0 — a bug; the Rust
+    /// engine computes it properly so the end-game eval terms engage correctly.)
+    sm: i32,
+
+    /// Shared stop flag, set by the UCI `stop`/`quit` commands from another
+    /// thread. Polled periodically via `checkup`.
+    stop: Arc<AtomicBool>,
+    /// Set once the search decides to abort (time up or `stop`); causes the
+    /// recursion to unwind cleanly (each level breaks before making a new move,
+    /// so make/unmake stay balanced — no board corruption, unlike the C++
+    /// exception approach).
+    stop_search: bool,
+    /// Wall-clock start of the current search and optional soft time limit in
+    /// milliseconds (0 = no time limit, i.e. depth-limited or infinite).
+    start_ms: u64,
+    max_time_ms: u64,
 }
 
 impl<'a> Search<'a> {
     pub fn new(board: &'a mut Board) -> Self {
+        Self::with_stop(board, Arc::new(AtomicBool::new(false)))
+    }
+
+    /// Construct a search sharing an external stop flag (used by the UCI loop so
+    /// `stop`/`quit` on the main thread can abort a search running on a worker).
+    pub fn with_stop(board: &'a mut Board, stop: Arc<AtomicBool>) -> Self {
         Search {
             board,
             tt: TranspositionTable::with_capacity(1 << 20),
@@ -90,6 +113,11 @@ impl<'a> Search<'a> {
             best_move: 0,
             mate_score: 0,
             sort_alfarray: true,
+            sm: 0,
+            stop,
+            stop_search: false,
+            start_ms: 0,
+            max_time_ms: 0,
         }
     }
 
@@ -99,6 +127,8 @@ impl<'a> Search<'a> {
     fn sort_legal_moves(&mut self, nbr_legal: usize) {
         use crate::types::PIECE_VALUE;
         let mut scored: [Move; MAX_LEGAL_MOVES] = [Move::default(); MAX_LEGAL_MOVES];
+        // Index-based: `i` addresses both the source move and the mailbox math.
+        #[allow(clippy::needless_range_loop)]
         for i in 0..nbr_legal {
             let mv = self.board.legal_moves[i];
             let x_from = (mv & 0xe000) >> 13;
@@ -128,10 +158,14 @@ impl<'a> Search<'a> {
             }
             scored[i] = Move { mv, value: score };
         }
-        // Descending by score (C++ move_t::operator< sorts best-first).
-        scored[..nbr_legal].sort_by(|a, b| b.value.cmp(&a.value));
-        for i in 0..nbr_legal {
-            self.board.legal_moves[i] = scored[i].mv;
+        // Descending by score (C++ move_t::operator< sorts best-first). Stable
+        // sort keeps equal-scored moves in generation order.
+        scored[..nbr_legal].sort_by_key(|m| std::cmp::Reverse(m.value));
+        for (dst, m) in self.board.legal_moves[..nbr_legal]
+            .iter_mut()
+            .zip(&scored[..nbr_legal])
+        {
+            *dst = m.mv;
         }
     }
 
@@ -184,6 +218,7 @@ impl<'a> Search<'a> {
         if dpt == 1 {
             self.nof_legal_root_moves = nbr_legal;
             self.calculate_evarray();
+            #[allow(clippy::needless_range_loop)] // parallel index copy
             for i in 0..self.nof_legal_root_moves {
                 alfarray[i] = self.root_moves[i].mv;
             }
@@ -191,9 +226,7 @@ impl<'a> Search<'a> {
             if self.sort_alfarray {
                 self.sort_legal_moves(nbr_legal);
             }
-            for i in 0..nbr_legal {
-                alfarray[i] = self.board.legal_moves[i];
-            }
+            alfarray[..nbr_legal].copy_from_slice(&self.board.legal_moves[..nbr_legal]);
             // Killer-move ordering: pull the two killers for this ply forward.
             if (dpt as usize) < MAX_PLY {
                 let mut front = 0;
@@ -215,8 +248,27 @@ impl<'a> Search<'a> {
             }
         }
 
+        // `i` is used for alfarray[i], root_moves[i], and currmovenumber i+1.
+        #[allow(clippy::needless_range_loop)]
         for i in 0..nbr_legal {
+            // Poll the stop flag / time limit periodically. Checked BEFORE
+            // making the move so that if we abort, no move is left pending at
+            // this level and make/unmake stay balanced as the recursion unwinds.
             self.nodes += 1;
+            if self.nodes & 1023 == 0 {
+                self.checkup();
+            }
+            if self.stop_search {
+                break;
+            }
+            // At the root, report the move currently being searched (UCI).
+            if dpt == 1 {
+                println!(
+                    "info currmove {} currmovenumber {}",
+                    crate::util::move2str(alfarray[i]),
+                    i + 1
+                );
+            }
             let u;
             self.board.update_table(alfarray[i], false);
             self.curr_line[dpt as usize] = alfarray[i];
@@ -237,7 +289,7 @@ impl<'a> Search<'a> {
                     self.search_age,
                     elp,
                     dpt,
-                    SM,
+                    self.sm,
                 );
                 self.tt_nodes = tt_nodes;
                 self.board.unmake_table(false);
@@ -361,14 +413,25 @@ impl<'a> Search<'a> {
         value
     }
 
-    /// Iterative-deepening driver with UCI output. Port of C++
-    /// `Chess::make_move` for the fixed-depth (`go depth N`) case.
+    /// Periodic abort check (called every ~1024 nodes). Sets `stop_search` if
+    /// the external stop flag is set or the soft time limit has elapsed.
+    fn checkup(&mut self) {
+        if self.stop.load(Ordering::Relaxed) {
+            self.stop_search = true;
+            return;
+        }
+        if self.max_time_ms != 0 && get_ms().saturating_sub(self.start_ms) >= self.max_time_ms {
+            self.stop_search = true;
+        }
+    }
+
+    /// Iterative-deepening driver with UCI `info`/`bestmove` output.
     ///
-    /// `gui_depth` is the target depth. `default_seldepth` matches the C++ field
-    /// (0 for a UCI `go depth`, so `seldepth == depth`). `break_if_mate_found`
-    /// stops early once a mate score is found. Emits `FEN:`, per-depth `info`
-    /// lines, and the final `bestmove`, formatted as the C++ engine does so the
-    /// output can be diffed against the golden baseline. Returns the best move.
+    /// `gui_depth` caps the search depth (use a large value for effectively
+    /// unlimited / time-controlled search). `default_seldepth` is the quiescence
+    /// offset (0 matches the C++ UCI path). `break_if_mate_found` stops once a
+    /// mate is found. Honors the shared stop flag and `max_time_ms` set via
+    /// `set_time_limit`. Returns the best move from the last COMPLETED iteration.
     pub fn make_move(
         &mut self,
         gui_depth: i32,
@@ -382,26 +445,43 @@ impl<'a> Search<'a> {
         }
         self.nodes = 0;
         self.tt_nodes = 0;
+        self.stop_search = false;
+        if self.start_ms == 0 {
+            self.start_ms = get_ms();
+        }
 
-        // Ensure best_move is a legal move before searching (matches C++).
+        // Ensure best_move is a legal move before searching.
         self.board.list_legal_moves();
         if self.board.legal_pointer >= 0 {
             self.best_move = self.board.legal_moves[0];
         }
-        println!("FEN: {}", self.board.get_fen());
+        // End-game threshold: the side-to-move's summed material at the root,
+        // used by eval to detect the end game. Computed once per search (the
+        // C++ engine intended this but left it at 0 due to an uninitialised
+        // field; the Rust engine computes it correctly).
+        self.sm = self.board.sum_material(self.board.player_to_move);
+        println!("info string position {}", self.board.get_fen());
 
+        let mut best_completed = self.best_move;
         let mut depth = 1;
         loop {
             self.depth = depth;
             self.seldepth = depth + default_seldepth;
-            println!("info depth {}", depth);
             self.alfabeta(1, -MAX, MAX);
 
-            // Per-iteration summary line (time/nps omitted/zeroed: deterministic
-            // output for the golden diff, which only checks the bestmove line).
+            if self.stop_search {
+                // This iteration was interrupted; its best_move is unreliable.
+                // Keep the result from the last fully completed depth.
+                break;
+            }
+            // Iteration completed: commit its best move.
+            best_completed = self.best_move;
+
+            let elapsed = get_ms().saturating_sub(self.start_ms);
+            let nps = (self.nodes * 1000).checked_div(elapsed).unwrap_or(0);
             println!(
-                "info depth {} seldepth {} nodes {}",
-                depth, self.seldepth, self.nodes
+                "info depth {} seldepth {} time {} nodes {} nps {}",
+                depth, self.seldepth, elapsed, self.nodes, nps
             );
 
             if depth == 1 && self.nof_legal_root_moves == 1 {
@@ -410,19 +490,26 @@ impl<'a> Search<'a> {
             if self.mate_score > 20000 && break_if_mate_found {
                 break;
             }
-            if depth == gui_depth {
+            if depth >= gui_depth {
                 break;
             }
             depth += 1;
         }
 
-        println!("bestmove {}", crate::util::move2str(self.best_move));
-        self.best_move
+        self.best_move = best_completed;
+        println!("bestmove {}", crate::util::move2str(best_completed));
+        best_completed
     }
 
-    /// Convenience entry point for tests: run `make_move` quietly-ish at a fixed
-    /// depth with the golden settings (`default_seldepth = 0`,
-    /// `break_if_mate_found = true`) and return the best move.
+    /// Set a soft time limit (ms) for the next `make_move`. 0 = no time limit.
+    pub fn set_time_limit(&mut self, max_time_ms: u64) {
+        self.start_ms = get_ms();
+        self.max_time_ms = max_time_ms;
+    }
+
+    /// Convenience entry point for tests: run `make_move` at a fixed depth with
+    /// the golden settings (`default_seldepth = 0`, `break_if_mate_found = true`)
+    /// and return the best move.
     pub fn search_fixed_depth(&mut self, target_depth: i32) -> i32 {
         self.make_move(target_depth, 0, true)
     }

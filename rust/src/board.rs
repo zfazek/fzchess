@@ -4,9 +4,10 @@
 //! C++ `Table` class, reduced to exactly what perft needs. Perft only counts
 //! leaf nodes of the legal-move tree, so three bookkeeping systems that the C++
 //! engine maintains for search/evaluation are intentionally omitted here:
-//!   * the incremental Zobrist key (only used by repetition detection),
-//!   * the incremental White-perspective material sum (only used by eval),
-//!   * the incremental pawn-square list (only used by eval).
+//! - the incremental Zobrist key (only used by repetition detection),
+//! - the incremental White-perspective material sum (only used by eval),
+//! - the incremental pawn-square list (only used by eval).
+//!
 //! They are omitted from BOTH make and unmake, so the make/unmake pair stays
 //! perfectly balanced — which is all perft requires.
 //!
@@ -39,6 +40,7 @@ const DOUBLE_BISHOPS: i32 = 50;
 /// Full board state needed for perft. A trimmed analogue of the C++ `Chess`
 /// object: the mailbox board, the per-ply state stack, side to move, and the
 /// scratch legal-move list.
+#[derive(Clone)]
 pub struct Board {
     pub board: [i32; 120],
     pub movelist: Vec<PositionState>,
@@ -66,6 +68,7 @@ pub struct Board {
 /// so the Rust port uses a fixed-seed PRNG for deterministic tests. Only
 /// internal consistency matters: the incremental key must equal a full
 /// recompute, which the cross-check test verifies.
+#[derive(Clone)]
 pub struct Zobrist {
     pub piece: [[[u64; 120]; 7]; 2], // [color 0=white/1=black][figure 0..6][square]
     pub side_white: u64,
@@ -89,6 +92,10 @@ impl Zobrist {
             z ^ (z >> 31)
         };
         let mut piece = [[[0u64; 120]; 7]; 2];
+        // Fill the [color][figure][square] table. Index-based loops are clearer
+        // here than nested enumerate() because the figure index starts at 1
+        // (slot 0 is unused) and all three indices address the same cell.
+        #[allow(clippy::needless_range_loop)]
         for c in 0..2 {
             for f in 1..7 {
                 for k in 0..120 {
@@ -116,6 +123,12 @@ impl Zobrist {
     }
 }
 
+
+impl Default for Board {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Board {
     pub fn new() -> Self {

@@ -121,6 +121,22 @@ case "${1:-}" in
     echo "Baseline written to $GOLDEN"
     cat "$GOLDEN"
     ;;
+  capture-rust)
+    # Regenerate the baseline from the RUST engine. Use this once the Rust
+    # engine has intentionally diverged from the C++ (e.g. eval improvements):
+    # the Rust engine becomes the source of truth and `check-rust` then acts as
+    # a Rust-vs-itself regression gate. Perft lines remain language-independent.
+    rust_bin="${2:-$ROOT/rust/target/release/fzchess}"
+    if [[ ! -x "$rust_bin" ]]; then
+      echo "Rust binary not found at $rust_bin (build: cd rust && cargo build --release)" >&2
+      exit 2
+    fi
+    log "capturing baseline from RUST engine: $rust_bin"
+    generate_rust "$rust_bin" > "$GOLDEN"
+    log "baseline written to $GOLDEN"
+    echo "Baseline (Rust) written to $GOLDEN"
+    cat "$GOLDEN"
+    ;;
   check)
     if [[ ! -f "$GOLDEN" ]]; then
       echo "No baseline at $GOLDEN. Run 'tools/golden.sh capture' first." >&2
@@ -155,7 +171,7 @@ case "${1:-}" in
     generate_rust "$local_rust" > "$tmp"
     log "comparing rust output to baseline..."
     if diff -u "$GOLDEN" "$tmp"; then
-      echo "OK: Rust output matches golden baseline (C++)."
+      echo "OK: Rust output matches golden baseline."
       rm -f "$tmp"
     else
       echo "MISMATCH: Rust output differs from golden baseline." >&2
@@ -164,7 +180,7 @@ case "${1:-}" in
     fi
     ;;
   *)
-    echo "Usage: $0 {capture|check|check-rust} [engine-path]" >&2
+    echo "Usage: $0 {capture|capture-rust|check|check-rust} [engine-path]" >&2
     exit 2
     ;;
 esac

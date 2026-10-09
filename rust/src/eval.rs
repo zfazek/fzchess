@@ -19,7 +19,13 @@ pub const WON: i32 = 22000;
 /// (matches the C++ magic value 32767).
 pub const NOT_END: i32 = 32767;
 
-const END_GAME_THRESHOLD: i32 = 1200;
+// Game-phase thresholds on the side-to-move's summed material (`sm`). These are
+// intentionally two distinct cutoffs, not one: pawn pushes become worthwhile
+// earlier (while more material is still on the board) than committing the king
+// toward the centre, so the pawn-advance bonus uses the higher threshold and
+// the king-activity terms use the lower one.
+const END_GAME_THRESHOLD: i32 = 1200; // king-activity terms (drive king to centre/corner)
+const PAWN_PUSH_THRESHOLD: i32 = 2000; // pawn-advancement bonus engages earlier
 const CANT_CASTLE: i32 = -40;
 const DOUBLE_PAWN: i32 = -30;
 const FRIENDLY_PAWN: i32 = 20;
@@ -142,8 +148,9 @@ impl Board {
             }
         }
 
-        // Advancement bonus (not deep in the end game).
-        if sm < 2000 {
+        // Advancement bonus — engages earlier than king activity (see the
+        // PAWN_PUSH_THRESHOLD / END_GAME_THRESHOLD note above).
+        if sm < PAWN_PUSH_THRESHOLD {
             if (field & 128) == 0 {
                 e += (idx / 10) * PAWN_ADVANTAGE;
             } else {

@@ -226,7 +226,7 @@ impl Board {
 
     #[inline]
     fn can_land(&self, t: i32, opp_color: i32) -> bool {
-        if t < 21 || t > 98 {
+        if !(21..=98).contains(&t) {
             return false;
         }
         let v = self.board[t as usize];
@@ -337,6 +337,11 @@ impl Board {
     /// key are updated only for real moves (`fake == false`), matching the C++
     /// `!fake` guard — perft and legality probes pass `fake == true` and skip
     /// that eval/TT-only work.
+    //
+    // pm2 is built in stages (many fields are set conditionally by the
+    // move-type branches), so a default + staged assignment is clearer than a
+    // single struct literal.
+    #[allow(clippy::field_reassign_with_default)]
     pub fn update_table(&mut self, mv: i32, fake: bool) {
         let pm1 = self.movelist[self.move_number];
         self.move_number += 1;
@@ -350,6 +355,8 @@ impl Board {
         let figure_from = self.board[square_from];
         let figure_to = self.board[square_to];
 
+        // Built in stages: many fields are set conditionally by the move-type
+        // branches below (promotion, castling, en passant, quiescence).
         let mut pm2 = PositionState::default();
         pm2.pos_white_king = pm1.pos_white_king;
         pm2.pos_black_king = pm1.pos_black_king;

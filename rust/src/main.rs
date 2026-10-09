@@ -54,6 +54,7 @@ fn run_perft_bench(fen: &str, depth: i32) {
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     match args.get(1).map(String::as_str) {
+        None => fzchess::uci::run(),
         Some("perft") => run_perft_suite(),
         Some("perft-bench") => {
             // Usage: fzchess perft-bench <depth> [fen...]
@@ -87,7 +88,7 @@ fn main() {
             search.make_move(depth, 0, true);
         }
         _ => eprintln!(
-            "usage:\n  fzchess perft                     # run the perft suite\n  fzchess perft-bench <depth> [fen] # time a single perft\n  fzchess go <depth> [fen]          # fixed-depth search, prints bestmove"
+            "usage:\n  fzchess                           # UCI mode (default; reads stdin)\n  fzchess perft                     # run the perft suite\n  fzchess perft-bench <depth> [fen] # time a single perft\n  fzchess go <depth> [fen]          # fixed-depth search, prints bestmove"
         ),
     }
 }
