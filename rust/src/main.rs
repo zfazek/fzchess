@@ -1,20 +1,32 @@
-//! FZChess — Rust port (work in progress).
+//! `fzchess` CLI — a thin front end over the `fzchess` library crate.
 //!
-//! Being ported bottom-up from the C++ engine, verified against the shared
-//! `tools/golden.sh` perft + bestmove baseline. Leaf modules land first
-//! (types, util); move generation, evaluation, search, and the UCI loop follow.
+//! Engine logic lives in the library (see `lib.rs`); this binary only parses
+//! arguments and formats output.
 
-// Leaf modules are implemented ahead of the code that consumes them, so items
-// are legitimately unused until later port slices wire them in. Scoped to the
-// crate and intended to be removed once the engine is fully assembled.
-#![allow(dead_code)]
+use fzchess::perft::{PerftCase, SUITE};
 
-mod types;
-mod util;
+/// Print one perft case in the C++ engine's format ("depth: N nodes: M"), one
+/// line per depth, so the output diffs cleanly against the golden baseline.
+fn print_case(case: &PerftCase) {
+    for (depth, nodes) in case.run() {
+        println!("depth: {} nodes: {}", depth, nodes);
+    }
+}
+
+/// Run the standard suite. The C++ suite prints the startpos block twice; we
+/// replicate that so the line-by-line golden comparison matches exactly.
+fn run_perft_suite() {
+    // First suite entry is startpos; the C++ engine emits it twice.
+    print_case(&SUITE[0]);
+    for case in SUITE {
+        print_case(case);
+    }
+}
 
 fn main() {
-    // Placeholder. The UCI command loop will be ported in a later slice; until
-    // then this binary exists so the crate builds and the leaf modules
-    // (types, util) are exercised by `cargo test`.
-    eprintln!("fzchess (rust port) — not yet a functional engine");
+    let args: Vec<String> = std::env::args().collect();
+    match args.get(1).map(String::as_str) {
+        Some("perft") => run_perft_suite(),
+        _ => eprintln!("usage: fzchess perft   # run the perft suite"),
+    }
 }
