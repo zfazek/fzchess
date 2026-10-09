@@ -462,7 +462,7 @@ impl Board {
             self.invert_player_to_move();
             nodes += self.perft(depth - 1);
             self.invert_player_to_move();
-            self.unmake_table();
+            self.unmake_table(true);
         }
         nodes
     }
@@ -534,7 +534,7 @@ mod tests {
             b.invert_player_to_move();
             verify_bookkeeping(b, depth - 1);
             b.invert_player_to_move();
-            b.unmake_table();
+            b.unmake_table(false);
         }
     }
 

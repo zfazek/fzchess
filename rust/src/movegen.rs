@@ -265,7 +265,7 @@ impl Board {
         if self.is_attacked(king, self.player_to_move) {
             self.legal_pointer -= 1;
         }
-        self.unmake_table();
+        self.unmake_table(true);
     }
 
     /// Add castling moves if legal. Port of C++ `Table::castling`.
@@ -378,6 +378,22 @@ impl Board {
             pm2.black_double_bishops = pm1.black_double_bishops;
         }
 
+        // Early quiescence/50-move seeding (C++ `!fake` block before the
+        // pawn/non-pawn split): a capture extends quiescence (`further = 1`) and
+        // resets the half-move clock; otherwise `further` decays from a parent
+        // `further == 2` down to 1, then to 0. The pawn/non-pawn branches below
+        // overwrite `not_pawn_move` (and may bump `further` to 2).
+        if !fake {
+            if figure_to != EMPTY {
+                pm2.not_pawn_move = 1;
+                pm2.further = 1;
+            } else if pm1.further == 2 {
+                pm2.further = 1;
+            } else {
+                pm2.further = 0;
+            }
+        }
+
         // Promotion.
         if (mv & 0x0303) > 0 {
             let promoted_fig = if (mv & 0x0200) == 0x0200 {
@@ -429,6 +445,16 @@ impl Board {
             }
             // Rook moves lose the corresponding castle right.
             pm2.en_passant = 0;
+            // Non-pawn move: increment the half-move (50-move) clock. Matches
+            // C++ (move_number is already incremented, so slot 1 means the very
+            // first move -> reset to 1).
+            if !fake {
+                pm2.not_pawn_move = if self.move_number == 1 {
+                    1
+                } else {
+                    pm1.not_pawn_move + 1
+                };
+            }
             if figure_from == WHITE_ROOK {
                 if square_from == 21 {
                     pm2.castle &= 13;
@@ -443,6 +469,19 @@ impl Board {
                 }
             }
         } else {
+            // Pawn move.
+            if !fake {
+                // Quiescence: a pawn advancing toward promotion extends search.
+                // y_from is the 0-indexed from-rank; white "deep" pawns have
+                // y_from > 3, black y_from < 4. Matches C++ QUIESCENCE_SEARCH.
+                if self.player_to_move == WHITE && y_from > 3 {
+                    pm2.further = 2;
+                }
+                if self.player_to_move == BLACK && y_from < 4 {
+                    pm2.further = 2;
+                }
+                pm2.not_pawn_move = 0; // a pawn move resets the 50-move clock
+            }
             // Pawn move: set/clear en passant target.
             let diff = square_to as i32 - square_from as i32;
             if diff == 20 {
@@ -476,9 +515,25 @@ impl Board {
         self.board[square_from] = EMPTY;
         self.movelist[self.move_number] = pm2;
 
-        // --- Incremental pawn-list update (both fake and real moves, so the
-        //     make/unmake pair stays balanced for the legality probe path) ---
-        {
+        // Quiescence: if the move just made gives check, extend search
+        // (`further = 2`). Checked after the board mutation so is_attacked sees
+        // the new position. Matches C++ QUIESCENCE_SEARCH post-move block.
+        if !fake {
+            let opp_king = if self.player_to_move == WHITE {
+                self.movelist[self.move_number].pos_black_king
+            } else {
+                self.movelist[self.move_number].pos_white_king
+            };
+            if self.is_attacked(opp_king, -self.player_to_move) {
+                self.movelist[self.move_number].further = 2;
+            }
+        }
+
+        // --- Incremental pawn-list update (real moves only). Perft and the
+        //     legality probe use fake=true and never read the pawn list, so
+        //     skipping it there avoids per-node overhead. unmake_table takes a
+        //     matching `fake` flag so the pair stays balanced. ---
+        if !fake {
             let from_is_pawn = figure_from == WHITE_PAWN || figure_from == BLACK_PAWN;
             let cap = pm2.captured_figure;
             let cap_is_pawn = cap == WHITE_PAWN || cap == BLACK_PAWN;
@@ -567,7 +622,9 @@ impl Board {
     }
 
     /// Reverse the last `update_table`. Port of C++ `Table::unmake_table`.
-    pub fn unmake_table(&mut self) {
+    /// `fake` must match the flag passed to the paired `update_table` so the
+    /// pawn-list maintenance stays balanced (it is skipped on fake moves).
+    pub fn unmake_table(&mut self, fake: bool) {
         let pm = self.movelist[self.move_number];
         let sq_from = pm.move_from as usize;
         let sq_to = pm.move_to as usize;
@@ -602,9 +659,9 @@ impl Board {
             }
         }
 
-        // Reverse the incremental pawn-list update (exact inverse of
-        // update_table, applied in reverse order). Port of C++ unmake_table.
-        {
+        // Reverse the incremental pawn-list update (real moves only, matching
+        // the `fake` gate in update_table so the pair stays balanced).
+        if !fake {
             let moved = pm.figure_moved;
             let from_is_pawn = moved == WHITE_PAWN || moved == BLACK_PAWN;
             let cap = pm.captured_figure;
