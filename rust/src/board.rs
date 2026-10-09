@@ -42,7 +42,76 @@ pub struct Board {
     pub player_to_move: i32,
     pub legal_moves: [i32; MAX_LEGAL_MOVES],
     pub legal_pointer: i32,
+
+    // --- Incremental bookkeeping (used by evaluation/search, not by perft) ---
+    // Maintained in update_table/unmake_table so the search can read them in
+    // O(1). Perft does not read these; they are kept here (rather than in a
+    // separate struct) so make/unmake stay a single balanced pair.
+    /// White-perspective material sum (white total minus black total).
+    pub material_wp: i32,
+    /// Pawn squares (both colors) and an index map for O(1) removal.
+    pub pawn_sq: [i32; 16],
+    pub pawn_at: [i32; 120],
+    pub n_pawns: usize,
+    /// Zobrist hashing tables (random but internally consistent per `Board`).
+    pub zobrist: Zobrist,
 }
+
+/// Zobrist random tables. The C++ engine seeds these from `time()` (random per
+/// run); the exact values are neither reproducible nor needed for correctness,
+/// so the Rust port uses a fixed-seed PRNG for deterministic tests. Only
+/// internal consistency matters: the incremental key must equal a full
+/// recompute, which the cross-check test verifies.
+pub struct Zobrist {
+    pub piece: [[[u64; 120]; 7]; 2], // [color 0=white/1=black][figure 0..6][square]
+    pub side_white: u64,
+    pub side_black: u64,
+    pub enpassant: [u64; 120],
+    pub castle: [u64; 16],
+}
+
+impl Zobrist {
+    /// Build the tables with a deterministic SplitMix64 PRNG so tests are
+    /// reproducible. (The C++ uses `rand()` seeded by time; values need not
+    /// match — see type docs.)
+    fn new() -> Self {
+        let mut state: u64 = 0x9E3779B97F4A7C15; // fixed seed
+        let mut next = || -> u64 {
+            // SplitMix64
+            state = state.wrapping_add(0x9E3779B97F4A7C15);
+            let mut z = state;
+            z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
+            z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
+            z ^ (z >> 31)
+        };
+        let mut piece = [[[0u64; 120]; 7]; 2];
+        for c in 0..2 {
+            for f in 1..7 {
+                for k in 0..120 {
+                    piece[c][f][k] = next();
+                }
+            }
+        }
+        let side_white = next();
+        let side_black = next();
+        let mut enpassant = [0u64; 120];
+        for e in enpassant.iter_mut() {
+            *e = next();
+        }
+        let mut castle = [0u64; 16];
+        for c in castle.iter_mut() {
+            *c = next();
+        }
+        Zobrist {
+            piece,
+            side_white,
+            side_black,
+            enpassant,
+            castle,
+        }
+    }
+}
+
 
 impl Board {
     pub fn new() -> Self {
@@ -53,6 +122,11 @@ impl Board {
             player_to_move: WHITE,
             legal_moves: [0; MAX_LEGAL_MOVES],
             legal_pointer: -1,
+            material_wp: 0,
+            pawn_sq: [0; 16],
+            pawn_at: [-1; 120],
+            n_pawns: 0,
+            zobrist: Zobrist::new(),
         };
         b.reset_startpos();
         b
@@ -85,6 +159,115 @@ impl Board {
         self.board = start;
         self.move_number = 0;
         self.player_to_move = WHITE;
+
+        // Initialise the incremental bookkeeping from the fresh board, then
+        // seed every movelist slot's key/material (the C++ engine does the same
+        // in reset_movelist so any slot reads a sane starting value).
+        self.rebuild_pawn_list();
+        self.material_wp = self.recompute_material();
+        let start_key = self.compute_zobrist_key(0);
+        for m in self.movelist.iter_mut() {
+            m.zobrist_key = start_key;
+            m.material_wp = self.material_wp;
+        }
+    }
+
+    // --- Incremental pawn-list maintenance (port of C++ pawn_add/remove/move) ---
+
+    #[inline]
+    pub fn pawn_add(&mut self, sq: i32) {
+        self.pawn_at[sq as usize] = self.n_pawns as i32;
+        self.pawn_sq[self.n_pawns] = sq;
+        self.n_pawns += 1;
+    }
+
+    #[inline]
+    pub fn pawn_remove(&mut self, sq: i32) {
+        let idx = self.pawn_at[sq as usize];
+        self.n_pawns -= 1;
+        let last = self.n_pawns;
+        let moved = self.pawn_sq[last];
+        self.pawn_sq[idx as usize] = moved;
+        self.pawn_at[moved as usize] = idx;
+        self.pawn_at[sq as usize] = -1;
+    }
+
+    #[inline]
+    pub fn pawn_move(&mut self, from: i32, to: i32) {
+        let idx = self.pawn_at[from as usize];
+        self.pawn_sq[idx as usize] = to;
+        self.pawn_at[to as usize] = idx;
+        self.pawn_at[from as usize] = -1;
+    }
+
+    /// Rebuild the pawn-square list from the current board. Port of C++
+    /// `Chess::rebuild_pawn_list`.
+    pub fn rebuild_pawn_list(&mut self) {
+        self.n_pawns = 0;
+        self.pawn_at = [-1; 120];
+        for sq in 20..100i32 {
+            let f = self.board[sq as usize];
+            if (f & 127) == PAWN && f != OFFBOARD {
+                self.pawn_add(sq);
+            }
+        }
+    }
+
+    /// White-perspective material of a piece code: +value for white, -value for
+    /// black, 0 for empty/offboard. Port of C++ `Table::material_delta`.
+    #[inline]
+    pub fn material_delta(field: i32) -> i32 {
+        if field == EMPTY || field == OFFBOARD {
+            return 0;
+        }
+        let v = PIECE_VALUE[(field & 127) as usize];
+        if (field & 128) != 0 {
+            -v
+        } else {
+            v
+        }
+    }
+
+    /// Full White-perspective material sum over the board. Used to seed the
+    /// incremental `material_wp` and to cross-check it in tests.
+    pub fn recompute_material(&self) -> i32 {
+        let mut m = 0;
+        for i in 20..100 {
+            m += Self::material_delta(self.board[i]);
+        }
+        m
+    }
+
+    /// Full Zobrist key recompute for the current position. Port of C++
+    /// `Chess::compute_zobrist_key`, with the side-to-move taken from
+    /// `player_to_move`.
+    ///
+    /// Note: unlike the C++ version this is only meaningful for the *current*
+    /// move slot (`mn == move_number`), which is the only slot ever recomputed
+    /// (setup seeding and the incremental cross-check). The C++ derived side
+    /// from `-movelist[mn].color`, but for a position set up via `setboard`
+    /// that slot's color labels the side-to-move's negation, which is
+    /// inconsistent with the incremental "flip side every ply" update. Using
+    /// `player_to_move` keeps the seed and the incremental key in agreement, as
+    /// verified by the bookkeeping cross-check tests.
+    pub fn compute_zobrist_key(&self, mn: usize) -> u64 {
+        let z = &self.zobrist;
+        let mut key = if self.player_to_move == WHITE {
+            z.side_white
+        } else {
+            z.side_black
+        };
+        for k in 20..100 {
+            let field = self.board[k];
+            if field > EMPTY && field < OFFBOARD {
+                let figure = (field & 127) as usize;
+                let color_idx = ((field & 128) >> 7) as usize;
+                key ^= z.piece[color_idx][figure][k];
+            }
+        }
+        key ^= z.enpassant[self.movelist[mn].en_passant as usize];
+        key ^= z.castle[(self.movelist[mn].castle & 15) as usize];
+        key
     }
 
     /// Parse a FEN (board + side + castle + en passant fields) into the state.
@@ -171,6 +354,14 @@ impl Board {
                 _ => {}
             }
         }
+
+        // Initialise incremental bookkeeping for the parsed position and seed
+        // the current + prior move slots so the search can read them.
+        self.rebuild_pawn_list();
+        self.material_wp = self.recompute_material();
+        let key = self.compute_zobrist_key(self.move_number);
+        self.movelist[self.move_number].zobrist_key = key;
+        self.movelist[self.move_number].material_wp = self.material_wp;
     }
 
     pub fn invert_player_to_move(&mut self) {
@@ -238,5 +429,57 @@ mod tests {
         let mut b = Board::new();
         b.setboard("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
         assert_eq!(b.perft(1), 48);
+    }
+
+    /// Walk the legal-move tree with REAL moves (fake=false) and, at every node,
+    /// assert the incrementally-maintained Zobrist key and material sum equal a
+    /// full recompute from the board. This is the correctness gate for task 1:
+    /// it proves the incremental bookkeeping stays in sync through make/unmake
+    /// across castling, en passant, promotion, and captures.
+    fn verify_bookkeeping(b: &mut Board, depth: i32) {
+        // Incremental vs full recompute at this node.
+        let inc_key = b.movelist[b.move_number].zobrist_key;
+        let full_key = b.compute_zobrist_key(b.move_number);
+        assert_eq!(inc_key, full_key, "zobrist key mismatch at mn={}", b.move_number);
+        let inc_mat = b.movelist[b.move_number].material_wp;
+        let full_mat = b.recompute_material();
+        assert_eq!(inc_mat, full_mat, "material mismatch at mn={}", b.move_number);
+
+        if depth == 0 {
+            return;
+        }
+        b.list_legal_moves();
+        let n = (b.legal_pointer + 1) as usize;
+        let mut moves = [0i32; MAX_LEGAL_MOVES];
+        moves[..n].copy_from_slice(&b.legal_moves[..n]);
+        for &mv in moves.iter().take(n) {
+            b.update_table(mv, false); // REAL move: maintains key + material
+            b.invert_player_to_move();
+            verify_bookkeeping(b, depth - 1);
+            b.invert_player_to_move();
+            b.unmake_table();
+        }
+    }
+
+    #[test]
+    fn bookkeeping_consistent_startpos() {
+        let mut b = Board::new();
+        verify_bookkeeping(&mut b, 3);
+    }
+
+    #[test]
+    fn bookkeeping_consistent_kiwipete() {
+        // Exercises castling, captures, and complex interactions.
+        let mut b = Board::new();
+        b.setboard("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+        verify_bookkeeping(&mut b, 3);
+    }
+
+    #[test]
+    fn bookkeeping_consistent_promotion_pos() {
+        // Exercises promotions and en passant.
+        let mut b = Board::new();
+        b.setboard("r2q1rk1/pP1p2pp/Q4n2/bbp1p3/Np6/1B3NBn/pPPP1PPP/R3K2R b KQ - 0 1");
+        verify_bookkeeping(&mut b, 3);
     }
 }

@@ -325,12 +325,14 @@ impl Board {
     }
 
     /// Apply a move to the board and push a new state slot. Port of
-    /// C++ `Table::update_table`, with eval-only bookkeeping (Zobrist key,
-    /// material sum, pawn list) omitted. `fake` mirrors the C++ flag: when true,
-    /// the eval-only `!fake` branches are skipped (here they are skipped
-    /// regardless, since none are maintained), but the signature is kept so the
-    /// call sites read like the C++.
-    pub fn update_table(&mut self, mv: i32, _fake: bool) {
+    /// C++ `Table::update_table`.
+    ///
+    /// The pawn-square list is updated for every move (so the make/unmake pair
+    /// used by the legality probe stays balanced). The material sum and Zobrist
+    /// key are updated only for real moves (`fake == false`), matching the C++
+    /// `!fake` guard — perft and legality probes pass `fake == true` and skip
+    /// that eval/TT-only work.
+    pub fn update_table(&mut self, mv: i32, fake: bool) {
         let pm1 = self.movelist[self.move_number];
         self.move_number += 1;
 
@@ -449,6 +451,95 @@ impl Board {
 
         self.board[square_from] = EMPTY;
         self.movelist[self.move_number] = pm2;
+
+        // --- Incremental pawn-list update (both fake and real moves, so the
+        //     make/unmake pair stays balanced for the legality probe path) ---
+        {
+            let from_is_pawn = figure_from == WHITE_PAWN || figure_from == BLACK_PAWN;
+            let cap = pm2.captured_figure;
+            let cap_is_pawn = cap == WHITE_PAWN || cap == BLACK_PAWN;
+            if cap_is_pawn {
+                if pm2.ep_capture_sq != 0 {
+                    self.pawn_remove(pm2.ep_capture_sq);
+                } else {
+                    self.pawn_remove(square_to as i32);
+                }
+            }
+            if from_is_pawn {
+                if pm2.promotion != 0 {
+                    self.pawn_remove(square_from as i32);
+                } else {
+                    self.pawn_move(square_from as i32, square_to as i32);
+                }
+            }
+        }
+
+        // --- Incremental material + Zobrist (real moves only; eval/TT state) ---
+        if !fake {
+            // Material: start from parent, subtract capture, apply promotion delta.
+            let mut mat = pm1.material_wp;
+            mat -= Self::material_delta(pm2.captured_figure);
+            if pm2.promotion != 0 {
+                let promoted_piece = self.board[square_to];
+                mat -= Self::material_delta(figure_from);
+                mat += Self::material_delta(promoted_piece);
+            }
+            self.movelist[self.move_number].material_wp = mat;
+            self.material_wp = mat;
+
+            // Zobrist key, updated incrementally from the parent key.
+            let z = &self.zobrist;
+            let mut key = pm1.zobrist_key;
+            let xor_piece = |key: &mut u64, sq: usize, piece: i32| {
+                let ci = ((piece & 128) >> 7) as usize;
+                let fig = (piece & 127) as usize;
+                *key ^= z.piece[ci][fig][sq];
+            };
+            // 1. Flip side to move.
+            key ^= z.side_white;
+            key ^= z.side_black;
+            // 2. Castle rights changed.
+            key ^= z.castle[(pm1.castle & 15) as usize];
+            key ^= z.castle[(pm2.castle & 15) as usize];
+            // 3. En passant changed.
+            key ^= z.enpassant[pm1.en_passant as usize];
+            key ^= z.enpassant[pm2.en_passant as usize];
+            // 4. Moving piece leaves square_from.
+            xor_piece(&mut key, square_from, figure_from);
+            // 5. Regular capture leaves square_to.
+            if figure_to != EMPTY {
+                xor_piece(&mut key, square_to, figure_to);
+            }
+            // 6. Moving/promoted piece arrives at square_to.
+            xor_piece(&mut key, square_to, self.board[square_to]);
+            // 7. Castling rook move.
+            if figure_from == WHITE_KING {
+                if square_from == 25 && square_to == 27 {
+                    xor_piece(&mut key, 28, WHITE_ROOK);
+                    xor_piece(&mut key, 26, WHITE_ROOK);
+                } else if square_from == 25 && square_to == 23 {
+                    xor_piece(&mut key, 21, WHITE_ROOK);
+                    xor_piece(&mut key, 24, WHITE_ROOK);
+                }
+            } else if figure_from == BLACK_KING {
+                if square_from == 95 && square_to == 97 {
+                    xor_piece(&mut key, 98, BLACK_ROOK);
+                    xor_piece(&mut key, 96, BLACK_ROOK);
+                } else if square_from == 95 && square_to == 93 {
+                    xor_piece(&mut key, 91, BLACK_ROOK);
+                    xor_piece(&mut key, 94, BLACK_ROOK);
+                }
+            }
+            // 8. En passant capture removed a pawn from a different square.
+            if pm2.ep_capture_sq != 0 {
+                if figure_from == WHITE_PAWN {
+                    xor_piece(&mut key, pm2.ep_capture_sq as usize, BLACK_PAWN);
+                } else if figure_from == BLACK_PAWN {
+                    xor_piece(&mut key, pm2.ep_capture_sq as usize, WHITE_PAWN);
+                }
+            }
+            self.movelist[self.move_number].zobrist_key = key;
+        }
     }
 
     /// Reverse the last `update_table`. Port of C++ `Table::unmake_table`.
@@ -487,6 +578,31 @@ impl Board {
             }
         }
 
+        // Reverse the incremental pawn-list update (exact inverse of
+        // update_table, applied in reverse order). Port of C++ unmake_table.
+        {
+            let moved = pm.figure_moved;
+            let from_is_pawn = moved == WHITE_PAWN || moved == BLACK_PAWN;
+            let cap = pm.captured_figure;
+            let cap_is_pawn = cap == WHITE_PAWN || cap == BLACK_PAWN;
+            if from_is_pawn {
+                if pm.promotion != 0 {
+                    self.pawn_add(sq_from as i32);
+                } else {
+                    self.pawn_move(sq_to as i32, sq_from as i32);
+                }
+            }
+            if cap_is_pawn {
+                if pm.ep_capture_sq != 0 {
+                    self.pawn_add(pm.ep_capture_sq);
+                } else {
+                    self.pawn_add(sq_to as i32);
+                }
+            }
+        }
+
         self.move_number -= 1;
+        // The running material mirror follows the now-current slot.
+        self.material_wp = self.movelist[self.move_number].material_wp;
     }
 }
