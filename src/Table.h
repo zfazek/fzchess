@@ -40,21 +40,20 @@ class Table {
     const int dir_bishop[4] = {-11, -9, 9, 11};
     const int dir_king[8] = {-11, -10, -9, -1, 1, 9, 10, 11};
 
-    Table(Chess *chess);
+    Table();
 
-    void list_legal_moves();
-    void print_table();
-    void reset_movelist();
-    void setboard(const char *fen_position);
-    bool is_attacked(const int field, const int color);
-    bool is_not_enough_material();
-    void update_table(const int move, const bool print, const bool fake = false);
-    void unmake_table();
-    bool third_occurance();
+    void list_legal_moves(Chess &chess);
+    void print_table(const Chess &chess);
+    void reset_movelist(Chess &chess);
+    void setboard(Chess &chess, const char *fen_position);
+    bool is_attacked(const Chess &chess, const int field, const int color);
+    bool is_not_enough_material(const Chess &chess);
+    void update_table(Chess &chess, const int move, const bool print,
+                      const bool fake = false);
+    void unmake_table(Chess &chess);
+    bool third_occurance(const Chess &chess);
 
   private:
-    Chess *chess;
-
     // Values representing the figures in the table
     static constexpr int WhitePawn = 1;
     static constexpr int WhiteKnight = 2;
@@ -88,6 +87,6 @@ class Table {
         {191, 88},  // "X"
     };
 
-    void is_really_legal();
-    void castling();
+    void is_really_legal(Chess &chess);
+    void castling(Chess &chess);
 };

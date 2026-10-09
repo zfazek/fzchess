@@ -36,7 +36,7 @@ void Uci::position_received(const char *input) {
         } else {
             move_old[4] = '\0';
         }
-        chess->table->update_table(Util::str2move(move_old), false);
+        chess->table->update_table(*chess, Util::str2move(move_old), false);
         chess->invert_player_to_move();
     }
     // print_table();
@@ -104,7 +104,7 @@ void Uci::position_received(const char *input) {
             position_received(input);
         }
         if (strstr(input, "position fen")) {
-            chess->table->setboard(input);
+            chess->table->setboard(*chess, input);
         }
         if (strstr(input, "go")) {
             chess->FZChess = chess->player_to_move;

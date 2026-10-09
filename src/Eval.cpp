@@ -115,22 +115,22 @@ int Eval::evaluation(Chess &chess, const int e_legal_pointer, const int dpt) {
     }
 
     // Not in the table — normal evaluation
-    if (chess.table->third_occurance() ||
-        chess.table->is_not_enough_material() ||
+    if (chess.table->third_occurance(chess) ||
+        chess.table->is_not_enough_material(chess) ||
         chess.movelist[chess.move_number].not_pawn_move >= 100) {
         tt->store(key, static_cast<int16_t>(dpt), static_cast<int16_t>(DRAW), TT_EXACT,
                   chess.search_age);
         return chess.table->eval->DRAW;
     }
-    chess.table->list_legal_moves();
+    chess.table->list_legal_moves(chess);
 
     int lp = e_legal_pointer;
     chess.invert_player_to_move();
-    chess.table->list_legal_moves();
+    chess.table->list_legal_moves(chess);
     lp -= chess.legal_pointer;
     chess.invert_player_to_move();
     if (chess.legal_pointer == -1) { // No legal move
-        if (!chess.table->is_attacked(
+        if (!chess.table->is_attacked(chess,
                 chess.player_to_move == chess.WHITE
                     ? (chess.movelist + chess.move_number)->pos_black_king
                     : (chess.movelist + chess.move_number)->pos_white_king,
@@ -152,10 +152,10 @@ int Eval::evaluation(Chess &chess, const int e_legal_pointer, const int dpt) {
 
 int Eval::evaluation_only_end_game(Chess &chess, const int dpt) {
     chess.invert_player_to_move();
-    chess.table->list_legal_moves();
+    chess.table->list_legal_moves(chess);
     chess.invert_player_to_move();
     if (chess.legal_pointer == -1) { // No legal move
-        if (!chess.table->is_attacked(
+        if (!chess.table->is_attacked(chess,
                 chess.player_to_move == chess.WHITE
                     ? (chess.movelist + chess.move_number)->pos_black_king
                     : (chess.movelist + chess.move_number)->pos_white_king,

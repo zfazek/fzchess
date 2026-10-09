@@ -20,7 +20,7 @@ struct best_lines {
 
 Chess::Chess() {
     uci = std::make_unique<Uci>(this);
-    table = std::make_unique<Table>(this);
+    table = std::make_unique<Table>();
     init_zobrist();
 }
 
@@ -99,11 +99,11 @@ void Chess::rebuild_pawn_list() {
 }
 
 void Chess::start_game() { // new
-    table->reset_movelist();
+    table->reset_movelist(*this);
     player_to_move = WHITE;
     default_seldepth = 0;
     break_if_mate_found = true;
-    // table->print_table();
+    // table->print_table(*this);
 }
 
 // Inverts who the next player is
@@ -133,7 +133,7 @@ void Chess::make_move() {
     // search starts. Otherwise, if the time limit expires before depth 1 assigns
     // best_move, make_move would play a stale move from a previous search, corrupt
     // the board, and crash on the next search.
-    table->list_legal_moves();
+    table->list_legal_moves(*this);
     if (legal_pointer >= 0) {
         best_move = legal_moves[0];
     }
@@ -165,7 +165,7 @@ void Chess::make_move() {
             // moves made along the current line. With a single shared board, we must
             // restore it to the root position by unmaking every pending move.
             while (move_number > root_move_number) {
-                table->unmake_table();
+                table->unmake_table(*this);
             }
             // Restore side to move to the root side (invert_player_to_move pairs in
             // the recursion are not balanced after an exception).
@@ -237,7 +237,7 @@ void Chess::make_move() {
                   << ", TT/nodes: " << (table->eval->tt_nodes * 100 / nodes) << "%" << std::endl;
     }
     // Update the table without printing it
-    table->update_table(best_move, false);
+    table->update_table(*this, best_move, false);
     invert_player_to_move();
 }
 
@@ -247,9 +247,9 @@ int Chess::alfabeta(int dpt, int alfa, int beta) {
     int alfarray[MAX_LEGAL_MOVES];
     int value = -22767;
 
-    table->list_legal_moves();
+    table->list_legal_moves(*this);
     if (legal_pointer == -1) {
-        if (!table->is_attacked(player_to_move == WHITE
+        if (!table->is_attacked(*this, player_to_move == WHITE
                                     ? (movelist + move_number)->pos_white_king
                                     : (movelist + move_number)->pos_black_king,
                                 player_to_move)) {
@@ -310,20 +310,20 @@ int Chess::alfabeta(int dpt, int alfa, int beta) {
             printf("info currmove %s currmovenumber %d\n", Util::move2str(alfarray[i]), i + 1);
             Util::flush();
         }
-        table->update_table(alfarray[i], false);
+        table->update_table(*this, alfarray[i], false);
         curr_line[dpt] = alfarray[i];
 
         // If last ply->evaluating
         if ((dpt >= depth && movelist[move_number].further == 0) || dpt >= seldepth) {
             last_ply = true;
             u = table->eval->evaluation(*this, legal_pointer, dpt);
-            table->unmake_table();
+            table->unmake_table(*this);
         } else { // Not last ply
-            if (table->third_occurance() ||
-                table->is_not_enough_material() ||
+            if (table->third_occurance(*this) ||
+                table->is_not_enough_material(*this) ||
                 movelist[move_number].not_pawn_move >= 100) {
                 u = table->eval->DRAW;
-                table->unmake_table();
+                table->unmake_table(*this);
             } else {
                 u = table->eval->evaluation_only_end_game(*this, dpt);
                 if (u == 32767) { // not end
@@ -332,7 +332,7 @@ int Chess::alfabeta(int dpt, int alfa, int beta) {
                     last_ply = false;
                     invert_player_to_move();
                 }
-                table->unmake_table();
+                table->unmake_table(*this);
             }
         }
         if (dpt == 1) {
@@ -430,7 +430,7 @@ uint64_t Chess::perft(const int dpt) {
         return 1;
     }
 
-    table->list_legal_moves();
+    table->list_legal_moves(*this);
     const int nbr_legal = legal_pointer + 1;
     for (int i = 0; i < nbr_legal; ++i) {
         alfarray[i] = legal_moves[i];
@@ -439,11 +439,11 @@ uint64_t Chess::perft(const int dpt) {
         if ((nodes & 1023) == 0) {
             checkup();
         }
-        table->update_table(alfarray[i], false);
+        table->update_table(*this, alfarray[i], false);
         invert_player_to_move();
         nodes += perft(dpt - 1);
         invert_player_to_move();
-        table->unmake_table();
+        table->unmake_table(*this);
     }
     return nodes;
 }

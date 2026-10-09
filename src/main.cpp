@@ -24,7 +24,7 @@ void test_perft_pos(const char *input, const int depth, const uint64_t *expected
     for (int i = 1; i <= depth; i++) {
         Chess chess;
         chess.start_game();
-        chess.table->setboard(input);
+        chess.table->setboard(chess, input);
         uint64_t start_time = Util::get_ms();
         uint64_t nodes = chess.perft(i);
         uint64_t stop_time = Util::get_ms();
@@ -103,7 +103,7 @@ void test_eval_depth_1() {
     puts(input);
     Chess chess;
     chess.start_game();
-    chess.table->setboard(input);
+    chess.table->setboard(chess, input);
     chess.max_time = 0;
     chess.gui_depth = 1;
     chess.default_seldepth = 0;
@@ -115,7 +115,7 @@ void test_eval_depth_2() {
     puts(input);
     Chess chess;
     chess.start_game();
-    chess.table->setboard(input);
+    chess.table->setboard(chess, input);
     chess.max_time = 0;
     chess.gui_depth = 5;
     chess.default_seldepth = 0;
@@ -127,7 +127,7 @@ void test_speed() {
     puts(input);
     Chess chess;
     chess.start_game();
-    chess.table->setboard(input);
+    chess.table->setboard(chess, input);
     chess.max_time = 0;
     chess.gui_depth = 2;
     chess.make_move();
@@ -143,7 +143,7 @@ void test_bratko_kopec_1() {
     Chess chess;
     chess.sort_alfarray = true;
     chess.start_game();
-    chess.table->setboard(input);
+    chess.table->setboard(chess, input);
     chess.max_time = 0;
     chess.gui_depth = 5;
     chess.default_seldepth = 0;
@@ -161,7 +161,7 @@ void test_bratko_kopec_1a() {
     puts(input);
     Chess chess;
     chess.start_game();
-    chess.table->setboard(input);
+    chess.table->setboard(chess, input);
     chess.max_time = 0;
     chess.gui_depth = 6;
     chess.default_seldepth = 0;
@@ -179,7 +179,7 @@ void test_bratko_kopec_1b() {
     puts(input);
     Chess chess;
     chess.start_game();
-    chess.table->setboard(input);
+    chess.table->setboard(chess, input);
     chess.max_time = 0;
     chess.gui_depth = 1;
     chess.make_move();
@@ -197,7 +197,7 @@ void test_bratko_kopec_2() {
     Chess chess;
     chess.sort_alfarray = true;
     chess.start_game();
-    chess.table->setboard(input);
+    chess.table->setboard(chess, input);
     chess.max_time = 0;
     chess.gui_depth = 5;
     chess.make_move();
@@ -211,7 +211,7 @@ void test_bratko_kopec_10() {
     puts(input);
     Chess chess;
     chess.start_game();
-    chess.table->setboard(input);
+    chess.table->setboard(chess, input);
     chess.max_time = 0;
     chess.gui_depth = 5;
     chess.make_move();
@@ -225,7 +225,7 @@ void test_bratko_kopec_12() {
     puts(input);
     Chess chess;
     chess.start_game();
-    chess.table->setboard(input);
+    chess.table->setboard(chess, input);
     chess.max_time = 0;
     chess.gui_depth = 2;
     chess.make_move();
@@ -288,7 +288,7 @@ void test_mate_in_2() {
     puts(input);
     Chess chess;
     chess.start_game();
-    chess.table->setboard(input);
+    chess.table->setboard(chess, input);
     chess.max_time = 0;
     chess.gui_depth = 5;
     chess.default_seldepth = 0;

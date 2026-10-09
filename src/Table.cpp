@@ -7,12 +7,12 @@
 #include "Eval.h"
 #include "Util.h"
 
-Table::Table(Chess *ch) : chess(ch) {
+Table::Table() {
     eval = std::make_unique<Eval>();
 }
 
 // Resets the parameters and the table
-void Table::reset_movelist() {
+void Table::reset_movelist(Chess &chess) {
     // Startup position
     const int new_table[120] = {
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -29,63 +29,63 @@ void Table::reset_movelist() {
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
     for (int n = 0; n < MAX_MOVES; n++) {
-        chess->movelist[n].color = 0;
-        chess->movelist[n].move_from = 0;
-        chess->movelist[n].move_to = 0;
-        chess->movelist[n].captured_figure = 0;
-        chess->movelist[n].figure_moved = 0;
-        chess->movelist[n].ep_capture_sq = 0;
-        chess->movelist[n].promotion = 0;
+        chess.movelist[n].color = 0;
+        chess.movelist[n].move_from = 0;
+        chess.movelist[n].move_to = 0;
+        chess.movelist[n].captured_figure = 0;
+        chess.movelist[n].figure_moved = 0;
+        chess.movelist[n].ep_capture_sq = 0;
+        chess.movelist[n].promotion = 0;
 
         // Both color, KQside castle possible
         // 1:WhiteShort, 2:WhiteLong, 4:BlackShort, 8:BlackLong
-        chess->movelist[n].castle = 15;
-        chess->movelist[n].not_pawn_move = 0;
-        chess->movelist[n].en_passant = 0;
-        chess->movelist[n].white_king_castled = 0;
-        chess->movelist[n].black_king_castled = 0;
-        chess->movelist[n].pos_white_king = 25;
-        chess->movelist[n].pos_black_king = 95;
-        chess->movelist[n].white_double_bishops =
+        chess.movelist[n].castle = 15;
+        chess.movelist[n].not_pawn_move = 0;
+        chess.movelist[n].en_passant = 0;
+        chess.movelist[n].white_king_castled = 0;
+        chess.movelist[n].black_king_castled = 0;
+        chess.movelist[n].pos_white_king = 25;
+        chess.movelist[n].pos_black_king = 95;
+        chess.movelist[n].white_double_bishops =
             eval->double_bishops;
-        chess->movelist[n].black_double_bishops =
+        chess.movelist[n].black_double_bishops =
             eval->double_bishops;
-        chess->movelist[n].further = 0;
+        chess.movelist[n].further = 0;
 #ifdef POS_FIGURE
         for (int i = 0; i < 16; i++) {
-            chess->movelist[n].pos_white_figure[i] =
+            chess.movelist[n].pos_white_figure[i] =
                 new_pos_white_figure[i];
-            chess->movelist[n].pos_black_figure[i] =
+            chess.movelist[n].pos_black_figure[i] =
                 new_pos_black_figure[i];
         }
 #endif
     }
     // Fill the single board once
     for (int i = 0; i < 120; i++) {
-        chess->board[i] = new_table[i];
+        chess.board[i] = new_table[i];
     }
-    chess->move_number = 0;
-    // Compute the starting Zobrist key once; update_table() will maintain it incrementally
-    const uint64_t start_key = chess->compute_zobrist_key(0);
+    chess.move_number = 0;
+    // Compute the starting Zobrist key once; update_table(chess, ) will maintain it incrementally
+    const uint64_t start_key = chess.compute_zobrist_key(0);
     // Compute the starting White-perspective material sum once
     int start_material = 0;
     for (int i = 20; i < 100; ++i) {
-        start_material += material_delta(chess->board[i]);
+        start_material += material_delta(chess.board[i]);
     }
     for (int n = 0; n < MAX_MOVES; n++) {
-        chess->movelist[n].zobrist_key = start_key;
-        chess->movelist[n].material_wp = start_material;
+        chess.movelist[n].zobrist_key = start_key;
+        chess.movelist[n].material_wp = start_material;
     }
-    chess->rebuild_pawn_list();
+    chess.rebuild_pawn_list();
 }
 
-void Table::update_table(const int move, const bool print, const bool fake) {
+void Table::update_table(Chess &chess, const int move, const bool print, const bool fake) {
 
     // Get previous position state
-    struct position_t *pm1 = chess->movelist + chess->move_number;
-    chess->move_number++;
-    struct position_t *pm2 = chess->movelist + chess->move_number;
-    int *pt2 = chess->board; // single board, mutated in place
+    struct position_t *pm1 = chess.movelist + chess.move_number;
+    chess.move_number++;
+    struct position_t *pm2 = chess.movelist + chess.move_number;
+    int *pt2 = chess.board; // single board, mutated in place
 
     const int x_from = (move & 0xe000) >> 13;
     const int y_from = (move & 0x1c00) >> 10;
@@ -104,7 +104,7 @@ void Table::update_table(const int move, const bool print, const bool fake) {
 
     const int square_from = 1 + x_from + (y_from + 2) * 10;
     const int square_to = 1 + x_to + (y_to + 2) * 10;
-    pm2->color = chess->player_to_move;
+    pm2->color = chess.player_to_move;
     pm2->move_from = square_from;
     pm2->move_to = square_to;
     pm2->castle = pm1->castle;
@@ -153,7 +153,7 @@ void Table::update_table(const int move, const bool print, const bool fake) {
                 break;
             }
         }
-        if (chess->player_to_move == Chess::BLACK) {
+        if (chess.player_to_move == Chess::BLACK) {
             *(pt2 + square_to) += BlackColor;
         }
     }
@@ -204,7 +204,7 @@ void Table::update_table(const int move, const bool print, const bool fake) {
 
         if (!fake) {
             pm2->en_passant = 0;
-            if (chess->move_number == 1) {
+            if (chess.move_number == 1) {
                 pm2->not_pawn_move = 1;
 
                 // not_pawn_move
@@ -236,10 +236,10 @@ void Table::update_table(const int move, const bool print, const bool fake) {
 
         if (!fake) {
 #ifdef QUIESCENCE_SEARCH
-            if (chess->player_to_move == Chess::WHITE && y_from > 3) {
+            if (chess.player_to_move == Chess::WHITE && y_from > 3) {
                 pm2->further = 2;
             }
-            if (chess->player_to_move == Chess::BLACK && y_from < 4) {
+            if (chess.player_to_move == Chess::BLACK && y_from < 4) {
                 pm2->further = 2;
             }
 #endif
@@ -280,10 +280,10 @@ void Table::update_table(const int move, const bool print, const bool fake) {
 
 #ifdef QUIESCENCE_SEARCH
     if (!fake) {
-        if (is_attacked(chess->player_to_move == Chess::WHITE
+        if (is_attacked(chess, chess.player_to_move == Chess::WHITE
                     ? pm2->pos_black_king
                     : pm2->pos_white_king,
-                    -chess->player_to_move)) {
+                    -chess.player_to_move)) {
             pm2->further = 2;
         }
     }
@@ -297,20 +297,20 @@ void Table::update_table(const int move, const bool print, const bool fake) {
         auto xor_piece = [&](int sq, int piece) {
             const int ci = (piece & 128) >> 7;
             const int fig = piece & 127;
-            key ^= chess->zobrist_piece[ci][fig][sq];
+            key ^= chess.zobrist_piece[ci][fig][sq];
         };
 
         // 1. Flip side to move
-        key ^= chess->zobrist_side_white;
-        key ^= chess->zobrist_side_black;
+        key ^= chess.zobrist_side_white;
+        key ^= chess.zobrist_side_black;
 
         // 2. Castle rights changed
-        key ^= chess->zobrist_castle[pm1->castle & 15];
-        key ^= chess->zobrist_castle[pm2->castle & 15];
+        key ^= chess.zobrist_castle[pm1->castle & 15];
+        key ^= chess.zobrist_castle[pm2->castle & 15];
 
         // 3. En passant changed
-        key ^= chess->zobrist_enpassant[pm1->en_passant];
-        key ^= chess->zobrist_enpassant[pm2->en_passant];
+        key ^= chess.zobrist_enpassant[pm1->en_passant];
+        key ^= chess.zobrist_enpassant[pm2->en_passant];
 
         // 4. Moving piece leaves square_from
         xor_piece(square_from, figure_from);
@@ -370,17 +370,17 @@ void Table::update_table(const int move, const bool print, const bool fake) {
         // 1. Remove a captured pawn first.
         if (cap_is_pawn) {
             if (pm2->ep_capture_sq != 0) {
-                chess->pawn_remove(pm2->ep_capture_sq); // en passant: pawn beside square_to
+                chess.pawn_remove(pm2->ep_capture_sq); // en passant: pawn beside square_to
             } else {
-                chess->pawn_remove(square_to);          // normal capture on square_to
+                chess.pawn_remove(square_to);          // normal capture on square_to
             }
         }
         // 2. The moving pawn.
         if (from_is_pawn) {
             if (pm2->promotion != 0) {
-                chess->pawn_remove(square_from);        // promoted: no longer a pawn
+                chess.pawn_remove(square_from);        // promoted: no longer a pawn
             } else {
-                chess->pawn_move(square_from, square_to);
+                chess.pawn_move(square_from, square_to);
             }
         }
     }
@@ -409,15 +409,15 @@ void Table::update_table(const int move, const bool print, const bool fake) {
     // --- End incremental material update ---
 
     if (print) {
-        print_table();
+        print_table(chess);
     }
 }
 
-// Reverses the last move made by update_table(), restoring the board to its prior state.
+// Reverses the last move made by update_table(chess, ), restoring the board to its prior state.
 // Decrements move_number as the last step.
-void Table::unmake_table() {
-    const struct position_t& pm = chess->movelist[chess->move_number];
-    int *board = chess->board;
+void Table::unmake_table(Chess &chess) {
+    const struct position_t& pm = chess.movelist[chess.move_number];
+    int *board = chess.board;
     const int sq_from = pm.move_from;
     const int sq_to   = pm.move_to;
 
@@ -475,30 +475,30 @@ void Table::unmake_table() {
         // 1. Undo the moving pawn.
         if (from_is_pawn) {
             if (pm.promotion != 0) {
-                chess->pawn_add(sq_from);               // pawn reappears at origin
+                chess.pawn_add(sq_from);               // pawn reappears at origin
             } else {
-                chess->pawn_move(sq_to, sq_from);       // move back
+                chess.pawn_move(sq_to, sq_from);       // move back
             }
         }
         // 2. Re-add the captured pawn.
         if (cap_is_pawn) {
             if (pm.ep_capture_sq != 0) {
-                chess->pawn_add(pm.ep_capture_sq);
+                chess.pawn_add(pm.ep_capture_sq);
             } else {
-                chess->pawn_add(sq_to);
+                chess.pawn_add(sq_to);
             }
         }
     }
     // --- End reverse pawn-list update ---
 
-    --chess->move_number;
+    --chess.move_number;
 }
 
 // Prints the table and the parameters to the console
-void Table::print_table() {
+void Table::print_table(const Chess &chess) {
     for (int i = 11; i >= 0; i--) {
         for (int j = 0; j < 10; j++) {
-            const int field = chess->board[i * 10 + j];
+            const int field = chess.board[i * 10 + j];
             if (field == OFFBOARD) {
                 continue;
             }
@@ -506,51 +506,51 @@ void Table::print_table() {
         }
         printf("\n");
     }
-    printf("Move number    : %d\n", chess->move_number);
-    printf("Move color     : %d\n", chess->movelist[chess->move_number].color);
+    printf("Move number    : %d\n", chess.move_number);
+    printf("Move color     : %d\n", chess.movelist[chess.move_number].color);
     printf("Move from      : %d\n",
-           chess->movelist[chess->move_number].move_from);
+           chess.movelist[chess.move_number].move_from);
     printf("Move to        : %d\n",
-           chess->movelist[chess->move_number].move_to);
+           chess.movelist[chess.move_number].move_to);
     printf("Captured       : %d\n",
-           chess->movelist[chess->move_number].captured_figure);
+           chess.movelist[chess.move_number].captured_figure);
     printf("Promotion      : %d\n",
-           chess->movelist[chess->move_number].promotion);
-    printf("Castle         : %d\n", chess->movelist[chess->move_number].castle);
+           chess.movelist[chess.move_number].promotion);
+    printf("Castle         : %d\n", chess.movelist[chess.move_number].castle);
     printf("Not Pawn Move  : %d\n",
-           chess->movelist[chess->move_number].not_pawn_move);
+           chess.movelist[chess.move_number].not_pawn_move);
     printf("En passant     : %d\n",
-           chess->movelist[chess->move_number].en_passant);
+           chess.movelist[chess.move_number].en_passant);
     printf("White castled  : %d\n",
-           chess->movelist[chess->move_number].white_king_castled);
+           chess.movelist[chess.move_number].white_king_castled);
     printf("Black castled  : %d\n",
-           chess->movelist[chess->move_number].black_king_castled);
+           chess.movelist[chess.move_number].black_king_castled);
     printf("Pos White king : %d\n",
-           chess->movelist[chess->move_number].pos_white_king);
+           chess.movelist[chess.move_number].pos_white_king);
     printf("Pos Black king : %d\n",
-           chess->movelist[chess->move_number].pos_black_king);
+           chess.movelist[chess.move_number].pos_black_king);
     printf("White2bishops  : %d\n",
-           chess->movelist[chess->move_number].white_double_bishops);
+           chess.movelist[chess.move_number].white_double_bishops);
     printf("Black2bishops  : %d\n",
-           chess->movelist[chess->move_number].black_double_bishops);
+           chess.movelist[chess.move_number].black_double_bishops);
     printf("Further invest.: %d\n",
-           chess->movelist[chess->move_number].further);
+           chess.movelist[chess.move_number].further);
     printf("\n");
     Util::flush();
 }
 
 // FEN interpreter
-void Table::setboard(const char *input) {
+void Table::setboard(Chess &chess, const char *input) {
     size_t n = strlen("position fen ");
     int x = 1;
     int y = 9;
     char move_old[6] = "     ";
-    chess->start_game();
-    chess->move_number = 1;
+    chess.start_game();
+    chess.move_number = 1;
     while (input[n] != ' ') {
         if (input[n] > '0' && input[n] < '9') {
             for (int m = 0; m < input[n] - '0'; m++) {
-                chess->board[y * 10 + x] = EMPTY;
+                chess.board[y * 10 + x] = EMPTY;
                 x++;
             }
             --x;
@@ -558,7 +558,7 @@ void Table::setboard(const char *input) {
         if (input[n] != '/') {
             for (int m = 0; m < 14; m++) {
                 if (input[n] == graphical_figure[m][1]) {
-                    chess->board[y * 10 + x] =
+                    chess.board[y * 10 + x] =
                         graphical_figure[m][0];
                     break;
                 }
@@ -573,48 +573,48 @@ void Table::setboard(const char *input) {
     }
     n++;
     if (input[n] == 'w') {
-        chess->player_to_move = Chess::WHITE;
-        chess->FZChess = Chess::WHITE;
-        chess->movelist[chess->move_number].color = Chess::WHITE;
+        chess.player_to_move = Chess::WHITE;
+        chess.FZChess = Chess::WHITE;
+        chess.movelist[chess.move_number].color = Chess::WHITE;
     } else {
-        chess->player_to_move = Chess::BLACK;
-        chess->FZChess = Chess::BLACK;
-        chess->movelist[chess->move_number].color = Chess::BLACK;
+        chess.player_to_move = Chess::BLACK;
+        chess.FZChess = Chess::BLACK;
+        chess.movelist[chess.move_number].color = Chess::BLACK;
     }
     n++;
     n++;
-    chess->movelist[chess->move_number].castle = 0;
+    chess.movelist[chess.move_number].castle = 0;
     while (input[n] != ' ' && input[n] != '\0' && input[n] != '\n') {
         if (input[n] == '-') {
-            chess->movelist[chess->move_number].castle = 0;
+            chess.movelist[chess.move_number].castle = 0;
         }
         if (input[n] == 'K') {
-            chess->movelist[chess->move_number].castle =
-                chess->movelist[chess->move_number].castle | 1;
+            chess.movelist[chess.move_number].castle =
+                chess.movelist[chess.move_number].castle | 1;
         }
         if (input[n] == 'Q') {
-            chess->movelist[chess->move_number].castle =
-                chess->movelist[chess->move_number].castle | 2;
+            chess.movelist[chess.move_number].castle =
+                chess.movelist[chess.move_number].castle | 2;
         }
         if (input[n] == 'k') {
-            chess->movelist[chess->move_number].castle =
-                chess->movelist[chess->move_number].castle | 4;
+            chess.movelist[chess.move_number].castle =
+                chess.movelist[chess.move_number].castle | 4;
         }
         if (input[n] == 'q') {
-            chess->movelist[chess->move_number].castle =
-                chess->movelist[chess->move_number].castle | 8;
+            chess.movelist[chess.move_number].castle =
+                chess.movelist[chess.move_number].castle | 8;
         }
         n++;
     }
-    chess->movelist[chess->move_number - 1].castle =
-        chess->movelist[chess->move_number].castle;
+    chess.movelist[chess.move_number - 1].castle =
+        chess.movelist[chess.move_number].castle;
     n++;
     if (input[n] == '-') {
-        chess->movelist[chess->move_number].en_passant = 0;
+        chess.movelist[chess.move_number].en_passant = 0;
     }
     if (input[n] >= 'a' &&
         input[n] <= 'h') { // en passant possible, target square
-        chess->movelist[chess->move_number].en_passant =
+        chess.movelist[chess.move_number].en_passant =
             1 + input[n] - 'a' + (input[n + 1] - '1' + 2) * 10;
         n++;
     }
@@ -628,11 +628,11 @@ void Table::setboard(const char *input) {
     if (input[n] == ' ') {
         n++; // past the separating space
     }
-    chess->movelist[chess->move_number].not_pawn_move = 0;
+    chess.movelist[chess.move_number].not_pawn_move = 0;
     int factor = 1;
     while (input[n] != ' ' && input[n] != '\0' && input[n] != '\n') {
-        chess->movelist[chess->move_number].not_pawn_move =
-            chess->movelist[chess->move_number].not_pawn_move * factor +
+        chess.movelist[chess.move_number].not_pawn_move =
+            chess.movelist[chess.move_number].not_pawn_move * factor +
             (int)(input[n] - '0');
         factor = factor * 10;
         n++;
@@ -640,32 +640,32 @@ void Table::setboard(const char *input) {
     int white_bishop = 0;
     int black_bishop = 0;
     for (int i = 0; i < 120; ++i) {
-        if ((chess->board[i] & 127) == Bishop) {
-            if (chess->board[i] == WhiteBishop) {
+        if ((chess.board[i] & 127) == Bishop) {
+            if (chess.board[i] == WhiteBishop) {
                 white_bishop++;
             }
-            if (chess->board[i] == BlackBishop) {
+            if (chess.board[i] == BlackBishop) {
                 black_bishop++;
             }
         }
-        if ((chess->board[i] & 127) == King) {
-            if (chess->board[i] == WhiteKing) {
-                chess->movelist[chess->move_number].pos_white_king = i;
+        if ((chess.board[i] & 127) == King) {
+            if (chess.board[i] == WhiteKing) {
+                chess.movelist[chess.move_number].pos_white_king = i;
             }
-            if (chess->board[i] == BlackKing) {
-                chess->movelist[chess->move_number].pos_black_king = i;
+            if (chess.board[i] == BlackKing) {
+                chess.movelist[chess.move_number].pos_black_king = i;
             }
         }
     }
     if (white_bishop < 2) {
-        chess->movelist[chess->move_number].white_double_bishops = 0;
+        chess.movelist[chess.move_number].white_double_bishops = 0;
     }
     if (black_bishop < 2) {
-        chess->movelist[chess->move_number].black_double_bishops = 0;
+        chess.movelist[chess.move_number].black_double_bishops = 0;
     }
     // Rebuild the pawn list for the parsed FEN board before applying any moves;
     // update_table keeps it in sync incrementally from here on.
-    chess->rebuild_pawn_list();
+    chess.rebuild_pawn_list();
     if (strstr(input, "moves")) {
         size_t m = strlen(input) - 1;
         for (size_t i = strstr(input, "moves") - input + 6; i < m; i++) {
@@ -680,27 +680,27 @@ void Table::setboard(const char *input) {
                 move_old[4] = '\0';
             }
             // printf("move: %s\n", move);Util::flush();
-            update_table(Util::str2move(move_old), false);
-            chess->invert_player_to_move();
+            update_table(chess, Util::str2move(move_old), false);
+            chess.invert_player_to_move();
         }
     }
     // (Re)compute the Zobrist key and material for the final position after all FEN
-    // moves are applied. update_table() maintains both incrementally from here on.
-    chess->movelist[chess->move_number].zobrist_key =
-        chess->compute_zobrist_key(chess->move_number);
+    // moves are applied. update_table(chess, ) maintains both incrementally from here on.
+    chess.movelist[chess.move_number].zobrist_key =
+        chess.compute_zobrist_key(chess.move_number);
     {
         int mat = 0;
         for (int i = 20; i < 100; ++i) {
-            mat += material_delta(chess->board[i]);
+            mat += material_delta(chess.board[i]);
         }
-        chess->movelist[chess->move_number].material_wp = mat;
+        chess.movelist[chess.move_number].material_wp = mat;
     }
-    print_table();
+    print_table(chess);
 }
 
 // Returns if the figure of color is attacked or not
-bool Table::is_attacked(const int field, const int color) {
-    const int * const b = chess->board;
+bool Table::is_attacked(const Chess &chess, const int field, const int color) {
+    const int * const b = chess.board;
 
     // Piece values for the attacking side (opposite of `color`)
     int Knight, Bishop, Rook, Queen, King;
@@ -787,13 +787,13 @@ bool Table::is_attacked(const int field, const int color) {
 }
 
 // Checks not enough material
-bool Table::is_not_enough_material() {
+bool Table::is_not_enough_material(const Chess &chess) {
     int white_knight = 0;
     int white_bishop = 0;
     int black_knight = 0;
     int black_bishop = 0;
     for (int i = 20; i < 100; i++) {
-        int c = chess->board[i];
+        int c = chess.board[i];
         if (c == 0 || c == OFFBOARD) {
             continue;
         }
@@ -842,76 +842,76 @@ bool Table::is_not_enough_material() {
 }
 
 // Checks castlings and adds to legal moves if possible
-void Table::castling() {
-    const int *t = chess->board;
-    if (chess->player_to_move == Chess::WHITE) {
+void Table::castling(Chess &chess) {
+    const int *t = chess.board;
+    if (chess.player_to_move == Chess::WHITE) {
         // Checks the conditions of castling
         // e1g1
         if (t[28] == WhiteRook &&
                 t[25] == WhiteKing &&
-                (chess->movelist[chess->move_number].castle & 1) == 1 &&
+                (chess.movelist[chess.move_number].castle & 1) == 1 &&
                 t[26] == EMPTY &&
                 t[27] == EMPTY &&
-                !is_attacked(25, Chess::WHITE) &&
-                !is_attacked(26, Chess::WHITE)) {
-            chess->legal_pointer++;
-            chess->legal_moves[chess->legal_pointer] = 0x80c0;
-            is_really_legal();
+                !is_attacked(chess, 25, Chess::WHITE) &&
+                !is_attacked(chess, 26, Chess::WHITE)) {
+            chess.legal_pointer++;
+            chess.legal_moves[chess.legal_pointer] = 0x80c0;
+            is_really_legal(chess);
         }
         // e1c1
         if (t[25] == WhiteKing &&
                 t[21] == WhiteRook &&
-                (chess->movelist[chess->move_number].castle & 2) == 2 &&
+                (chess.movelist[chess.move_number].castle & 2) == 2 &&
                 t[24] == EMPTY &&
                 t[23] == EMPTY &&
                 t[22] == EMPTY &&
-                !is_attacked(25, Chess::WHITE) &&
-                !is_attacked(24, Chess::WHITE)) {
-            chess->legal_pointer++;
-            chess->legal_moves[chess->legal_pointer] = 0x8040;
-            is_really_legal();
+                !is_attacked(chess, 25, Chess::WHITE) &&
+                !is_attacked(chess, 24, Chess::WHITE)) {
+            chess.legal_pointer++;
+            chess.legal_moves[chess.legal_pointer] = 0x8040;
+            is_really_legal(chess);
         }
 
-        // if (chess->player_to_move == Chess::BLACK)
+        // if (chess.player_to_move == Chess::BLACK)
     } else {
-        if ((chess->movelist[chess->move_number].castle & 4) == 4 &&
+        if ((chess.movelist[chess.move_number].castle & 4) == 4 &&
                 t[96] == EMPTY &&
                 t[97] == EMPTY &&
                 t[98] == BlackRook &&
                 t[95] == BlackKing &&
-                !is_attacked(95, Chess::BLACK) &&
-                !is_attacked(96, Chess::BLACK)) {
-            chess->legal_pointer++;
+                !is_attacked(chess, 95, Chess::BLACK) &&
+                !is_attacked(chess, 96, Chess::BLACK)) {
+            chess.legal_pointer++;
             // e8g8
-            chess->legal_moves[chess->legal_pointer] = 0x9cdc;
-            is_really_legal();
+            chess.legal_moves[chess.legal_pointer] = 0x9cdc;
+            is_really_legal(chess);
         }
         // e8c8
         if (t[95] == BlackKing &&
                 t[91] == BlackRook &&
-                (chess->movelist[chess->move_number].castle & 8) == 8 &&
+                (chess.movelist[chess.move_number].castle & 8) == 8 &&
                 t[94] == EMPTY &&
                 t[93] == EMPTY &&
                 t[92] == EMPTY &&
-                !is_attacked(95, Chess::BLACK) &&
-                !is_attacked(94, Chess::BLACK)) {
-            chess->legal_pointer++;
-            chess->legal_moves[chess->legal_pointer] = 0x9c5c;
-            is_really_legal();
+                !is_attacked(chess, 95, Chess::BLACK) &&
+                !is_attacked(chess, 94, Chess::BLACK)) {
+            chess.legal_pointer++;
+            chess.legal_moves[chess.legal_pointer] = 0x9c5c;
+            is_really_legal(chess);
         }
     }
 }
 
 // Checks third occurance
-bool Table::third_occurance() {
+bool Table::third_occurance(const Chess &chess) {
     int occurance = 0;
-    if (chess->move_number < 6) {
+    if (chess.move_number < 6) {
         return false;
     }
-    const uint64_t current_key = chess->movelist[chess->move_number].zobrist_key;
-    int i = chess->move_number - 2;
+    const uint64_t current_key = chess.movelist[chess.move_number].zobrist_key;
+    int i = chess.move_number - 2;
     while (i >= 0 && occurance < 2) {
-        if (chess->movelist[i].zobrist_key == current_key) {
+        if (chess.movelist[i].zobrist_key == current_key) {
             occurance++;
         }
         i -= 2;
@@ -920,13 +920,13 @@ bool Table::third_occurance() {
 }
 
 // Searches and stores all the legal moves
-void Table::list_legal_moves() {
-    chess->legal_pointer = -1;
-    const int * const b = chess->board;
-    const int ptm = chess->player_to_move;
+void Table::list_legal_moves(Chess &chess) {
+    chess.legal_pointer = -1;
+    const int * const b = chess.board;
+    const int ptm = chess.player_to_move;
     const int my_color  = (ptm == Chess::WHITE) ? WhiteColor : BlackColor;
     const int opp_color = (ptm == Chess::WHITE) ? BlackColor : WhiteColor;
-    const int en_pass   = chess->movelist[chess->move_number].en_passant;
+    const int en_pass   = chess.movelist[chess.move_number].en_passant;
 
     // Encode a move from two square indices + optional promotion bits
     // sq: board index (21-98), x = sq%10-1, y = sq/10-2
@@ -938,9 +938,9 @@ void Table::list_legal_moves() {
 
     // Try adding a move; drop it if it leaves own king in check
     auto try_move = [&](int sf, int st, int promo = 0) {
-        chess->legal_pointer++;
-        chess->legal_moves[chess->legal_pointer] = encode(sf, st, promo);
-        is_really_legal();
+        chess.legal_pointer++;
+        chess.legal_moves[chess.legal_pointer] = encode(sf, st, promo);
+        is_really_legal(chess);
     };
 
     // A square is a legal destination if it's empty or holds an opponent piece
@@ -1032,7 +1032,7 @@ void Table::list_legal_moves() {
                 if (can_land(sq + d)) try_move(sq, sq + d);
             }
         } else if (figure == King) {
-            castling();
+            castling(chess);
             for (int d : {-11, -10, -9, -1, 1, 9, 10, 11}) {
                 if (can_land(sq + d)) try_move(sq, sq + d);
             }
@@ -1048,14 +1048,14 @@ void Table::list_legal_moves() {
 
 // Checks weather the move is legal. If the king is attacked then not legal.
 // Decreases the legal pointer->does not store the move
-void Table::is_really_legal() {
-    update_table(chess->legal_moves[chess->legal_pointer], false, true);
-    if (is_attacked(chess->player_to_move == Chess::WHITE
-                ? chess->movelist[chess->move_number].pos_white_king
-                : chess->movelist[chess->move_number].pos_black_king,
-                chess->player_to_move)) {
-        --chess->legal_pointer;
+void Table::is_really_legal(Chess &chess) {
+    update_table(chess, chess.legal_moves[chess.legal_pointer], false, true);
+    if (is_attacked(chess, chess.player_to_move == Chess::WHITE
+                ? chess.movelist[chess.move_number].pos_white_king
+                : chess.movelist[chess.move_number].pos_black_king,
+                chess.player_to_move)) {
+        --chess.legal_pointer;
     }
-    unmake_table();
+    unmake_table(chess);
 }
 
