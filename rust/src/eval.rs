@@ -7,12 +7,17 @@
 //! up with the golden baseline.
 
 use crate::board::Board;
+use crate::tt::{TranspositionTable, TtFlag, TT_MISS};
 use crate::types::*;
 
 // Evaluation constants (match C++ `Eval`).
 pub const DRAW: i32 = 0;
 pub const LOST: i32 = -22000;
 pub const WON: i32 = 22000;
+
+/// Sentinel "not an end-game terminal node" return from `evaluation_only_end_game`
+/// (matches the C++ magic value 32767).
+pub const NOT_END: i32 = 32767;
 
 const END_GAME_THRESHOLD: i32 = 1200;
 const CANT_CASTLE: i32 = -40;
@@ -164,6 +169,102 @@ impl Board {
             }
         }
         e
+    }
+
+    /// Leaf evaluation with TT probe/store and a mobility differential. Port of
+    /// C++ `Eval::evaluation`.
+    ///
+    /// `e_legal_pointer` is the side-to-move's `legal_pointer` captured before
+    /// this call (its move count), used for the mobility term. `sm` is the
+    /// end-game threshold material — the C++ engine passes a value that is
+    /// always 0 at runtime (its `sm` field is never assigned), so the search
+    /// passes 0 here to match the golden bestmoves. `tt_nodes` counts TT hits.
+    ///
+    /// Takes `&mut self` because it re-lists legal moves and flips the side to
+    /// move (restored before returning), and `&mut TranspositionTable` because
+    /// the TT belongs to the search, not the board.
+    pub fn evaluation(
+        &mut self,
+        tt: &mut TranspositionTable,
+        tt_nodes: &mut u64,
+        search_age: u8,
+        e_legal_pointer: i32,
+        dpt: i32,
+        sm: i32,
+    ) -> i32 {
+        let key = self.movelist[self.move_number].zobrist_key;
+
+        let cached = tt.probe(key);
+        if cached != TT_MISS {
+            *tt_nodes += 1;
+            return cached;
+        }
+
+        // Draw conditions.
+        if self.third_occurance()
+            || self.is_not_enough_material()
+            || self.movelist[self.move_number].not_pawn_move >= 100
+        {
+            tt.store(key, dpt as i16, DRAW as i16, TtFlag::Exact, search_age);
+            return DRAW;
+        }
+
+        // Mobility differential: our move count minus the opponent's.
+        self.list_legal_moves();
+        let mut lp = e_legal_pointer;
+        self.invert_player_to_move();
+        self.list_legal_moves();
+        lp -= self.legal_pointer;
+        self.invert_player_to_move();
+
+        if self.legal_pointer == -1 {
+            // `legal_pointer` here is the OPPONENT's move count (from the second
+            // list_legal_moves above, after the invert). So this branch means
+            // the opponent has no legal move: checkmate if their king is
+            // attacked (good for us -> WON), else stalemate (DRAW). `king` is
+            // the opponent's king and `-player_to_move` is its color, so
+            // is_attacked tests whether we attack it.
+            let king = if self.player_to_move == WHITE {
+                self.movelist[self.move_number].pos_black_king
+            } else {
+                self.movelist[self.move_number].pos_white_king
+            };
+            if !self.is_attacked(king, -self.player_to_move) {
+                return DRAW; // stalemate
+            } else {
+                return WON - dpt; // checkmate
+            }
+        }
+
+        let random_number = 0; // C++: rand()%(window+1), but window path disabled
+        let u = self.evaluation_material(dpt, sm) + 2 * lp + random_number;
+        tt.store(key, dpt as i16, u as i16, TtFlag::Exact, search_age);
+        u
+    }
+
+    /// Detect a terminal end-game node (mate/stalemate) without scoring it;
+    /// returns `NOT_END` (32767) otherwise. Port of C++
+    /// `Eval::evaluation_only_end_game`.
+    pub fn evaluation_only_end_game(&mut self, dpt: i32) -> i32 {
+        self.invert_player_to_move();
+        self.list_legal_moves();
+        self.invert_player_to_move();
+        if self.legal_pointer == -1 {
+            // As in `evaluation`, `legal_pointer` is the opponent's move count
+            // here (listed between the two inverts). No opponent move =>
+            // checkmate if their king is attacked by us, else stalemate.
+            let king = if self.player_to_move == WHITE {
+                self.movelist[self.move_number].pos_black_king
+            } else {
+                self.movelist[self.move_number].pos_white_king
+            };
+            if !self.is_attacked(king, -self.player_to_move) {
+                return DRAW; // stalemate
+            } else {
+                return WON - dpt; // checkmate
+            }
+        }
+        NOT_END
     }
 }
 
