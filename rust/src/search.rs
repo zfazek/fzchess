@@ -14,7 +14,7 @@
 
 use crate::board::Board;
 use crate::eval::{DRAW, LOST, NOT_END};
-use crate::tt::TranspositionTable;
+use crate::tt::{TranspositionTable, TtFlag};
 use crate::types::{Move, MAX_LEGAL_MOVES};
 use crate::util::get_ms;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -58,6 +58,11 @@ pub struct Search<'a> {
     killer_moves: [[i32; 2]; MAX_PLY],
     best_line: Vec<Line>, // indexed by ply
     curr_line: [i32; MAX_LEGAL_MOVES],
+    /// Principal variation from the previous iterative-deepening iteration,
+    /// indexed by ply (prev_pv[dpt] is the PV move at ply dpt). Tried first at
+    /// each node still on the PV path, so the previous best line is re-searched
+    /// first — the strongest form of "use last iteration's best move first".
+    prev_pv: [i32; MAX_PLY],
 
     /// Root move list and ordering (for iterative deepening).
     pub root_moves: [Move; MAX_LEGAL_MOVES],
@@ -108,6 +113,7 @@ impl<'a> Search<'a> {
             killer_moves: [[0; 2]; MAX_PLY],
             best_line: vec![Line::default(); MAX_PLY],
             curr_line: [0; MAX_LEGAL_MOVES],
+            prev_pv: [0; MAX_PLY],
             root_moves: [Move::default(); MAX_LEGAL_MOVES],
             nof_legal_root_moves: 0,
             best_move: 0,
@@ -119,6 +125,13 @@ impl<'a> Search<'a> {
             start_ms: 0,
             max_time_ms: 0,
         }
+    }
+
+    /// Enable or disable the transposition table for this search (default on).
+    /// Disabling makes the search behave as if no TT existed — useful for
+    /// measuring the TT's effect or for strictly reproducible/pure search.
+    pub fn set_tt_enabled(&mut self, enabled: bool) {
+        self.tt.set_enabled(enabled);
     }
 
     /// MVV-LVA static move ordering. Port of C++ `Chess::sort_legal_moves`:
@@ -194,9 +207,14 @@ impl<'a> Search<'a> {
     /// Negamax alpha-beta. Port of C++ `Chess::alfabeta`. Returns the score of
     /// the position from the side-to-move's perspective. `dpt` is the current
     /// ply (root == 1).
-    pub fn alfabeta(&mut self, dpt: i32, mut alfa: i32, beta: i32) -> i32 {
+    pub fn alfabeta(&mut self, dpt: i32, mut alfa: i32, beta: i32, on_pv: bool) -> i32 {
         let mut value = NEG_INF;
         let mut alfarray: [i32; MAX_LEGAL_MOVES] = [0; MAX_LEGAL_MOVES];
+        // Zobrist key of this position, for TT hash-move probing/storing.
+        let key = self.board.movelist[self.board.move_number].zobrist_key;
+        // Best move found at this node, stored into the TT for future ordering.
+        let mut node_best_move = 0i32;
+        let alfa_orig = alfa; // original alpha, to classify the node (Exact vs upper-bound)
 
         self.board.list_legal_moves();
         if self.board.legal_pointer == -1 {
@@ -243,6 +261,40 @@ impl<'a> Search<'a> {
                             front += 1;
                             break;
                         }
+                    }
+                }
+            }
+            // Hash-move ordering (highest priority): if the TT has a best move
+            // for this position from a previous (iteration or transposition)
+            // visit, try it first. This is the main fix for ordering decay at
+            // depth — MVV-LVA/killers can't rank quiet moves, but the hash move
+            // carries forward what the search already found best here.
+            let hash_move = self.tt.probe_move(key);
+            if hash_move != 0 {
+                for i in 0..nbr_legal {
+                    if alfarray[i] == hash_move {
+                        if i != 0 {
+                            alfarray[..=i].rotate_right(1);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        // PV-move ordering (highest priority): while still on the previous
+        // iteration's principal variation, try that PV move first at this ply.
+        // This re-searches last iteration's best line before anything else —
+        // the strongest ordering signal, applied at both root and interior.
+        if on_pv {
+            let pv_move = self.prev_pv[dpt as usize];
+            if pv_move != 0 {
+                for i in 0..nbr_legal {
+                    if alfarray[i] == pv_move {
+                        if i != 0 {
+                            alfarray[..=i].rotate_right(1);
+                        }
+                        break;
                     }
                 }
             }
@@ -305,7 +357,8 @@ impl<'a> Search<'a> {
                     let eg = self.board.evaluation_only_end_game(dpt);
                     if eg == NOT_END {
                         self.board.invert_player_to_move();
-                        u = -self.alfabeta(dpt + 1, -beta, -alfa);
+                        let child_on_pv = on_pv && alfarray[i] == self.prev_pv[dpt as usize];
+                        u = -self.alfabeta(dpt + 1, -beta, -alfa, child_on_pv);
                         self.last_ply = false;
                         self.board.invert_player_to_move();
                     } else {
@@ -322,6 +375,7 @@ impl<'a> Search<'a> {
 
             if u > value {
                 value = u;
+                node_best_move = alfarray[i];
                 // Copy current line into best_line[dpt].
                 let sd = self.seldepth as usize;
                 for b in 1..=sd {
@@ -404,11 +458,35 @@ impl<'a> Search<'a> {
                     self.killer_moves[dpt as usize][1] = self.killer_moves[dpt as usize][0];
                     self.killer_moves[dpt as usize][0] = km;
                 }
+                // Store a fail-high (lower-bound) entry with the cutoff move as
+                // the hash move, so future visits try it first.
+                if !self.stop_search {
+                    self.tt.store(
+                        key,
+                        dpt as i16,
+                        value as i16,
+                        km,
+                        TtFlag::Beta,
+                        self.search_age,
+                    );
+                }
                 return value;
             }
             if value > alfa {
                 alfa = value;
             }
+        }
+        // Node fully searched: store the best move (hash move) for ordering on
+        // future visits. Flag is Exact if we raised alpha, else Alpha (upper
+        // bound). Skip if the search was aborted mid-node (value unreliable).
+        if !self.stop_search && node_best_move != 0 {
+            let flag = if value > alfa_orig {
+                TtFlag::Exact
+            } else {
+                TtFlag::Alpha
+            };
+            self.tt
+                .store(key, dpt as i16, value as i16, node_best_move, flag, self.search_age);
         }
         value
     }
@@ -446,6 +524,7 @@ impl<'a> Search<'a> {
         self.nodes = 0;
         self.tt_nodes = 0;
         self.stop_search = false;
+        self.prev_pv = [0; MAX_PLY]; // no carried PV for a fresh search
         if self.start_ms == 0 {
             self.start_ms = get_ms();
         }
@@ -467,7 +546,9 @@ impl<'a> Search<'a> {
         loop {
             self.depth = depth;
             self.seldepth = depth + default_seldepth;
-            self.alfabeta(1, -MAX, MAX);
+            // Root is on the PV. Iteration 1 has no previous PV (prev_pv all 0),
+            // so the on_pv ordering is a no-op until a PV has been collected.
+            self.alfabeta(1, -MAX, MAX, true);
 
             if self.stop_search {
                 // This iteration was interrupted; its best_move is unreliable.
@@ -476,6 +557,15 @@ impl<'a> Search<'a> {
             }
             // Iteration completed: commit its best move.
             best_completed = self.best_move;
+
+            // Carry this iteration's principal variation forward: copy the
+            // completed best line into prev_pv[ply] so the next, deeper
+            // iteration tries it first along the PV path.
+            let len = self.best_line[1].length.min(MAX_PLY - 1);
+            self.prev_pv = [0; MAX_PLY];
+            for ply in 1..=len {
+                self.prev_pv[ply] = self.best_line[1].moves[ply];
+            }
 
             let elapsed = get_ms().saturating_sub(self.start_ms);
             let nps = (self.nodes * 1000).checked_div(elapsed).unwrap_or(0);
@@ -544,5 +634,18 @@ mod tests {
         let mv = s.search_fixed_depth(3);
         assert_eq!(move2str(mv), "a1a8", "expected mate-in-1 Ra8, got {}", move2str(mv));
         assert!(s.mate_score > 20000, "mate not scored as mate: {}", s.mate_score);
+    }
+
+    #[test]
+    fn tt_disabled_still_finds_mate() {
+        // Correctness must not depend on the transposition table: with the TT
+        // off the search still finds the same mate.
+        let mut b = Board::new();
+        b.setboard("6k1/5ppp/8/8/8/8/8/R6K w - - 0 1");
+        let mut s = Search::new(&mut b);
+        s.set_tt_enabled(false);
+        let mv = s.search_fixed_depth(3);
+        assert_eq!(move2str(mv), "a1a8", "TT-off: expected Ra8, got {}", move2str(mv));
+        assert_eq!(s.tt_nodes, 0, "TT-off should record zero TT hits");
     }
 }

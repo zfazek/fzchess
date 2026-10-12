@@ -44,6 +44,7 @@ pub fn run() {
     let stdin = io::stdin();
     let mut board = Board::new();
     let mut searching: Option<Searching> = None;
+    let mut use_tt = true; // transposition table on by default; toggled via setoption UseTT
 
     for line in stdin.lock().lines() {
         let line = match line {
@@ -73,9 +74,16 @@ pub fn run() {
             "uci" => {
                 println!("id name FZChess-rs");
                 println!("id author Zoltan FAZEKAS");
-                // No tunable options are exposed yet.
+                // Custom option: toggle the transposition table (default on).
+                println!("option name UseTT type check default true");
                 println!("uciok");
                 flush();
+            }
+            "setoption" => {
+                // setoption name <id> [value <x>]. Only `UseTT` is recognised.
+                if let Some(val) = parse_setoption(tokens, "UseTT") {
+                    use_tt = val.eq_ignore_ascii_case("true");
+                }
             }
             "isready" => {
                 // May arrive while searching; answer immediately without
@@ -97,7 +105,7 @@ pub fn run() {
             "go" => {
                 stop_search(&mut searching);
                 let params = parse_go(tokens);
-                searching = Some(start_search(&board, params));
+                searching = Some(start_search(&board, params, use_tt));
             }
             "stop" => {
                 stop_search(&mut searching);
@@ -114,8 +122,42 @@ pub fn run() {
 fn is_command(t: &str) -> bool {
     matches!(
         t,
-        "uci" | "isready" | "ucinewgame" | "position" | "go" | "stop" | "quit"
+        "uci" | "setoption" | "isready" | "ucinewgame" | "position" | "go" | "stop" | "quit"
     )
+}
+
+/// Parse a `setoption name <id> [value <x>]` command (tokens AFTER the
+/// `setoption` keyword). Returns the value string if the option id matches
+/// `wanted` (case-insensitive). Returns `None` if the id differs or there is
+/// no value.
+fn parse_setoption<'a, I>(mut tokens: std::iter::Peekable<I>, wanted: &str) -> Option<String>
+where
+    I: Iterator<Item = &'a str>,
+{
+    if tokens.next() != Some("name") {
+        return None;
+    }
+    // The id may contain spaces; collect name tokens until "value".
+    let mut name = String::new();
+    for t in tokens.by_ref() {
+        if t == "value" {
+            break;
+        }
+        if !name.is_empty() {
+            name.push(' ');
+        }
+        name.push_str(t);
+    }
+    if !name.eq_ignore_ascii_case(wanted) {
+        return None;
+    }
+    // Remaining tokens form the value.
+    let value: Vec<&str> = tokens.collect();
+    if value.is_empty() {
+        None
+    } else {
+        Some(value.join(" "))
+    }
 }
 
 fn flush() {
@@ -247,7 +289,7 @@ fn time_budget_ms(p: &GoParams, white_to_move: bool) -> u64 {
 }
 
 /// Spawn a background thread that searches `board` and prints `bestmove`.
-fn start_search(board: &Board, params: GoParams) -> Searching {
+fn start_search(board: &Board, params: GoParams, use_tt: bool) -> Searching {
     let stop = Arc::new(AtomicBool::new(false));
     let white_to_move = board.player_to_move == crate::types::WHITE;
     let budget = time_budget_ms(&params, white_to_move);
@@ -261,6 +303,7 @@ fn start_search(board: &Board, params: GoParams) -> Searching {
     let (ready_tx, ready_rx) = mpsc::channel::<()>();
     let handle = thread::spawn(move || {
         let mut search = Search::with_stop(&mut board_copy, stop_for_thread);
+        search.set_tt_enabled(use_tt);
         if budget != 0 {
             search.set_time_limit(budget);
         }

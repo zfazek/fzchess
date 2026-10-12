@@ -212,7 +212,7 @@ impl Board {
             || self.is_not_enough_material()
             || self.movelist[self.move_number].not_pawn_move >= 100
         {
-            tt.store(key, dpt as i16, DRAW as i16, TtFlag::Exact, search_age);
+            tt.store(key, dpt as i16, DRAW as i16, 0, TtFlag::Exact, search_age);
             return DRAW;
         }
 
@@ -245,7 +245,7 @@ impl Board {
 
         let random_number = 0; // C++: rand()%(window+1), but window path disabled
         let u = self.evaluation_material(dpt, sm) + 2 * lp + random_number;
-        tt.store(key, dpt as i16, u as i16, TtFlag::Exact, search_age);
+        tt.store(key, dpt as i16, u as i16, 0, TtFlag::Exact, search_age);
         u
     }
 

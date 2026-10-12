@@ -10,3 +10,96 @@ go infinite
 
 # only one black move => move it immediately
 2b3n1/8/2p1p1pk/p1PpP3/5PR1/1P5R/r7/6K1 b - - 1 36
+
+Hogyan hasonlítsd össze az eredményeket?
+
+Futtasd le a motorodat az egyik fenti állásra, és nézd meg az info sort:
+1. Írd fel a Nodes (csomópont) számot pl. depth 8-nál.
+2. Kapcsold ki a kódban a Transposition Table-t, majd futtasd le újra. (A csomópontok száma meg kell hogy ugorjon).
+3. Kapcsold ki a Null Move Pruning-ot, és nézd meg a különbséget.
+Ha egy jól működő Alpha-Beta motorral futtatod a r3k2r/... (1. számú) állást, Depth 8-nál a csomópontok száma ideális esetben 150 000 és 400 000 között kellene hogy mozogjon, nem pedig 5 milliónál.
+
+uci
+position fen r1bqk2r/pppp1ppp/2n5/1B2P3/1b1pn3/2N2N2/PPP2PPP/R1BQK2R w KQkq - 0 1
+go depth 7
+
+info currmove e5e6 currmovenumber 1
+info multipv 1 depth 7 seldepth 7 score cp -84 nodes 870129 pv e5e6 d4c3 e6d7 d8d7 d1d7 c8d7 b5c6
+info currmove f3g5 currmovenumber 2
+info currmove c1g5 currmovenumber 3
+info currmove e1f1 currmovenumber 4
+info currmove e1e2 currmovenumber 5
+info currmove b2b3 currmovenumber 6
+info currmove d1e2 currmovenumber 7
+info currmove h1f1 currmovenumber 8
+info currmove h2h3 currmovenumber 9
+info currmove b5d3 currmovenumber 10
+info currmove h1g1 currmovenumber 11
+info currmove c1f4 currmovenumber 12
+info currmove f3g1 currmovenumber 13
+info currmove b5e2 currmovenumber 14
+info currmove b5a4 currmovenumber 15
+info currmove a2a4 currmovenumber 16
+info currmove g2g4 currmovenumber 17
+info currmove h2h4 currmovenumber 18
+info currmove f3h4 currmovenumber 19
+info currmove f3d2 currmovenumber 20
+info currmove c1h6 currmovenumber 21
+info currmove c1e3 currmovenumber 22
+info currmove c1d2 currmovenumber 23
+info currmove a1b1 currmovenumber 24
+info currmove b5c4 currmovenumber 25
+info currmove b5a6 currmovenumber 26
+info currmove b5f1 currmovenumber 27
+info currmove f3d4 currmovenumber 28
+info currmove a2a3 currmovenumber 29
+info currmove g2g3 currmovenumber 30
+info currmove e1g1 currmovenumber 31
+info currmove d1d4 currmovenumber 32
+info currmove b5c6 currmovenumber 33
+info currmove d1d3 currmovenumber 34
+info currmove d1d2 currmovenumber 35
+info depth 7 seldepth 7 time 15711 nodes 3252292 nps 207007
+bestmove e5e6
+
+# setoption name UseTT value false
+info currmove e5e6 currmovenumber 1
+info multipv 1 depth 7 seldepth 7 score cp -84 nodes 2018764 pv e5e6 d4c3 e6d7 d8d7 d1d7 c8d7 b5c6
+info currmove f3d4 currmovenumber 2
+info currmove a2a3 currmovenumber 3
+info currmove b5c4 currmovenumber 4
+info currmove c1f4 currmovenumber 5
+info currmove h2h3 currmovenumber 6
+info currmove a2a4 currmovenumber 7
+info currmove h2h4 currmovenumber 8
+info currmove e1e2 currmovenumber 9
+info currmove b5d3 currmovenumber 10
+info currmove d1e2 currmovenumber 11
+info currmove g2g3 currmovenumber 12
+info currmove b5a4 currmovenumber 13
+info currmove f3g5 currmovenumber 14
+info currmove c1h6 currmovenumber 15
+info currmove b5a6 currmovenumber 16
+info currmove d1d2 currmovenumber 17
+info currmove b5e2 currmovenumber 18
+info currmove f3d2 currmovenumber 19
+info currmove a1b1 currmovenumber 20
+info currmove b5f1 currmovenumber 21
+info currmove g2g4 currmovenumber 22
+info currmove h1g1 currmovenumber 23
+info currmove e1g1 currmovenumber 24
+info currmove h1f1 currmovenumber 25
+info currmove e1f1 currmovenumber 26
+info currmove b2b3 currmovenumber 27
+info currmove c1e3 currmovenumber 28
+info currmove c1g5 currmovenumber 29
+info currmove d1d3 currmovenumber 30
+info currmove b5c6 currmovenumber 31
+info currmove f3g1 currmovenumber 32
+info currmove c1d2 currmovenumber 33
+info currmove f3h4 currmovenumber 34
+info currmove d1d4 currmovenumber 35
+info depth 7 seldepth 7 time 70656 nodes 9827922 nps 139095
+bestmove e5e6
+
+
