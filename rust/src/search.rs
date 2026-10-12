@@ -24,6 +24,12 @@ const MAX_PLY: usize = 128;
 /// Initial `value` floor in alfabeta (matches C++ -22767).
 const NEG_INF: i32 = -22767;
 
+/// Safety cap on quiescence recursion depth (plies past the horizon). Capture
+/// chains self-terminate (captures are finite), so this is only a guardrail
+/// against pathological positions; normal positions go quiet long before it.
+/// On reaching the cap, quiescence returns the stand-pat score.
+const QS_MAX_PLY: i32 = 16;
+
 /// A principal-variation line: `moves[1..=length]` is the line, `value` its score.
 #[derive(Clone)]
 struct Line {
@@ -325,25 +331,23 @@ impl<'a> Search<'a> {
             self.board.update_table(alfarray[i], false);
             self.curr_line[dpt as usize] = alfarray[i];
 
-            // Leaf test: at target depth with no quiescence extension, or at the
-            // selective-depth cap -> static evaluation.
-            let further = self.board.movelist[self.board.move_number].further;
-            if (dpt >= self.depth && further == 0) || dpt >= self.seldepth {
+            // Horizon: at the nominal depth, hand off to the capture-only
+            // quiescence search (resolves pending exchanges) instead of a raw
+            // static eval. The old `further`/`seldepth` extension is gone —
+            // quiescence replaces it. Draw conditions are still checked first.
+            if dpt >= self.depth {
                 self.last_ply = true;
-                // e_legal_pointer is the mover's move count (legal_pointer was
-                // overwritten by update_table's internal legality probing, so we
-                // re-list before calling eval, as the C++ does inside evaluation).
-                let elp = self.board.legal_pointer;
-                let mut tt_nodes = self.tt_nodes;
-                u = self.board.evaluation(
-                    &mut self.tt,
-                    &mut tt_nodes,
-                    self.search_age,
-                    elp,
-                    dpt,
-                    self.sm,
-                );
-                self.tt_nodes = tt_nodes;
+                if self.board.third_occurance()
+                    || self.board.is_not_enough_material()
+                    || self.board.movelist[self.board.move_number].not_pawn_move >= 100
+                {
+                    u = DRAW;
+                } else {
+                    // Negamax into quiescence from the opponent's side to move.
+                    self.board.invert_player_to_move();
+                    u = -self.quiescence(-beta, -alfa, dpt + 1, 0);
+                    self.board.invert_player_to_move();
+                }
                 self.board.unmake_table(false);
             } else {
                 // Draw detection before recursing.
@@ -491,6 +495,121 @@ impl<'a> Search<'a> {
         value
     }
 
+    /// Capture-only quiescence search from the side-to-move's perspective.
+    ///
+    /// Standard stand-pat quiescence: the static evaluation is a lower bound on
+    /// the node's value (the side to move can decline to capture), so if it
+    /// already exceeds beta we fail high immediately, and otherwise it raises
+    /// alpha. Only capture moves are then searched, recursively, until the
+    /// position is quiet (no captures) — which terminates because captures are
+    /// finite. This resolves pending exchanges before the position is scored,
+    /// eliminating the horizon effect without a fixed depth cap.
+    ///
+    /// `dpt` is the current ply (for mate-distance scoring in the static eval).
+    fn quiescence(&mut self, mut alfa: i32, beta: i32, dpt: i32, qply: i32) -> i32 {
+        self.nodes += 1;
+        // Record the deepest ply actually reached (for the UCI `seldepth`).
+        if dpt > self.seldepth {
+            self.seldepth = dpt;
+        }
+        if self.nodes & 1023 == 0 {
+            self.checkup();
+        }
+        if self.stop_search {
+            return 0;
+        }
+
+        // Stand-pat: static evaluation from the side-to-move's perspective.
+        let stand_pat = self.board.evaluation_material(dpt, self.sm);
+        // Safety cap: stop extending and return the stand-pat score. Capture
+        // chains terminate on their own; this only bounds pathological trees.
+        if qply >= QS_MAX_PLY {
+            return stand_pat;
+        }
+        if stand_pat >= beta {
+            return beta;
+        }
+        if stand_pat > alfa {
+            alfa = stand_pat;
+        }
+
+        // Generate legal moves and keep only captures.
+        self.board.list_legal_moves();
+        let nbr = (self.board.legal_pointer + 1) as usize;
+        let en_passant = self.board.movelist[self.board.move_number].en_passant;
+        let mut caps: [i32; MAX_LEGAL_MOVES] = [0; MAX_LEGAL_MOVES];
+        let mut ncap = 0usize;
+        for i in 0..nbr {
+            let mv = self.board.legal_moves[i];
+            if self.is_capture(mv, en_passant) {
+                caps[ncap] = mv;
+                ncap += 1;
+            }
+        }
+        // Order captures by MVV-LVA (reuse the main sorter would require the
+        // full list; here order the capture subset directly by victim/attacker).
+        self.order_captures(&mut caps[..ncap]);
+
+        for &mv in caps.iter().take(ncap) {
+            if self.stop_search {
+                break;
+            }
+            self.board.update_table(mv, false);
+            self.board.invert_player_to_move();
+            let score = -self.quiescence(-beta, -alfa, dpt + 1, qply + 1);
+            self.board.invert_player_to_move();
+            self.board.unmake_table(false);
+            if score >= beta {
+                return beta;
+            }
+            if score > alfa {
+                alfa = score;
+            }
+        }
+        alfa
+    }
+
+    /// Is `mv` a capture in the current position? A normal capture lands on a
+    /// square holding an opponent piece; an en-passant capture lands on the
+    /// (empty) en-passant target diagonally with a pawn.
+    fn is_capture(&self, mv: i32, en_passant: i32) -> bool {
+        let x_to = (mv & 0x00e0) >> 5;
+        let y_to = (mv & 0x001c) >> 2;
+        let sq_to = (1 + x_to + (y_to + 2) * 10) as usize;
+        let dest = self.board.board[sq_to];
+        if dest != crate::types::EMPTY && dest != crate::types::OFFBOARD {
+            return true; // normal capture (legality already guarantees it's an enemy)
+        }
+        // En-passant: a pawn moving onto the en_passant target square.
+        if en_passant > 1 && sq_to as i32 == en_passant {
+            let x_from = (mv & 0xe000) >> 13;
+            let y_from = (mv & 0x1c00) >> 10;
+            let sq_from = (1 + x_from + (y_from + 2) * 10) as usize;
+            let piece = self.board.board[sq_from] & 127;
+            return piece == crate::types::PAWN;
+        }
+        false
+    }
+
+    /// Order a slice of capture moves by MVV-LVA (most valuable victim, least
+    /// valuable attacker), descending. Mirrors the main sorter's capture score.
+    fn order_captures(&self, caps: &mut [i32]) {
+        use crate::types::PIECE_VALUE;
+        let board = &self.board;
+        let score = |mv: i32| -> i32 {
+            let x_from = (mv & 0xe000) >> 13;
+            let y_from = (mv & 0x1c00) >> 10;
+            let x_to = (mv & 0x00e0) >> 5;
+            let y_to = (mv & 0x001c) >> 2;
+            let sq_from = (1 + x_from + (y_from + 2) * 10) as usize;
+            let sq_to = (1 + x_to + (y_to + 2) * 10) as usize;
+            let victim = (board.board[sq_to] & 127) as usize;
+            let attacker = (board.board[sq_from] & 127) as usize;
+            PIECE_VALUE[victim] * 16 - PIECE_VALUE[attacker]
+        };
+        caps.sort_by_key(|&mv| std::cmp::Reverse(score(mv)));
+    }
+
     /// Periodic abort check (called every ~1024 nodes). Sets `stop_search` if
     /// the external stop flag is set or the soft time limit has elapsed.
     fn checkup(&mut self) {
@@ -506,16 +625,10 @@ impl<'a> Search<'a> {
     /// Iterative-deepening driver with UCI `info`/`bestmove` output.
     ///
     /// `gui_depth` caps the search depth (use a large value for effectively
-    /// unlimited / time-controlled search). `default_seldepth` is the quiescence
-    /// offset (0 matches the C++ UCI path). `break_if_mate_found` stops once a
+    /// unlimited / time-controlled search). `break_if_mate_found` stops once a
     /// mate is found. Honors the shared stop flag and `max_time_ms` set via
     /// `set_time_limit`. Returns the best move from the last COMPLETED iteration.
-    pub fn make_move(
-        &mut self,
-        gui_depth: i32,
-        default_seldepth: i32,
-        break_if_mate_found: bool,
-    ) -> i32 {
+    pub fn make_move(&mut self, gui_depth: i32, break_if_mate_found: bool) -> i32 {
         const MAX: i32 = 22767;
         self.search_age = self.search_age.wrapping_add(1);
         for p in 0..MAX_PLY {
@@ -545,7 +658,11 @@ impl<'a> Search<'a> {
         let mut depth = 1;
         loop {
             self.depth = depth;
-            self.seldepth = depth + default_seldepth;
+            // seldepth is MEASURED: the deepest ply actually reached this
+            // iteration (including quiescence). Start at the nominal depth and
+            // let alfabeta/quiescence raise it. (The old fixed depth+N was
+            // stale once quiescence replaced the seldepth-capped extension.)
+            self.seldepth = depth;
             // Root is on the PV. Iteration 1 has no previous PV (prev_pv all 0),
             // so the on_pv ordering is a no-op until a PV has been collected.
             self.alfabeta(1, -MAX, MAX, true);
@@ -597,11 +714,10 @@ impl<'a> Search<'a> {
         self.max_time_ms = max_time_ms;
     }
 
-    /// Convenience entry point for tests: run `make_move` at a fixed depth with
-    /// the golden settings (`default_seldepth = 0`, `break_if_mate_found = true`)
-    /// and return the best move.
+    /// Convenience entry point for tests: run `make_move` at a fixed depth
+    /// (with mate-break) and return the best move.
     pub fn search_fixed_depth(&mut self, target_depth: i32) -> i32 {
-        self.make_move(target_depth, 0, true)
+        self.make_move(target_depth, true)
     }
 }
 

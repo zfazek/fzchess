@@ -83,9 +83,9 @@ fn main() {
                 }
             }
             let mut search = Search::new(&mut board);
-            // default_seldepth = 0, break_if_mate_found = true: matches the C++
-            // UCI `go depth` path that produced the golden baseline.
-            search.make_move(depth, 0, true);
+            // Fixed-depth search with mate-break; emits the UCI info/bestmove
+            // lines, including a quiescence (capture-resolving) search at leaves.
+            search.make_move(depth, true);
         }
         _ => eprintln!(
             "usage:\n  fzchess                           # UCI mode (default; reads stdin)\n  fzchess perft                     # run the perft suite\n  fzchess perft-bench <depth> [fen] # time a single perft\n  fzchess go <depth> [fen]          # fixed-depth search, prints bestmove"

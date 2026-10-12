@@ -308,7 +308,7 @@ fn start_search(board: &Board, params: GoParams, use_tt: bool) -> Searching {
             search.set_time_limit(budget);
         }
         let _ = ready_tx.send(()); // signal that the search has started
-        search.make_move(gui_depth, 0, true);
+        search.make_move(gui_depth, true);
     });
     // Ensure the thread has started before returning (keeps ordering sane).
     let _ = ready_rx.recv();
