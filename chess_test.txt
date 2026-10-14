@@ -9,7 +9,7 @@ position fen 8/k7/3p4/p2P1p2/P2P1P2/8/8/K7 w - - 1 1
 go infinite
 
 # only one black move => move it immediately
-2b3n1/8/2p1p1pk/p1PpP3/5PR1/1P5R/r7/6K1 b - - 1 36
+position fen 2b3n1/8/2p1p1pk/p1PpP3/5PR1/1P5R/r7/6K1 b - - 1 36
 
 Hogyan hasonlítsd össze az eredményeket?
 
