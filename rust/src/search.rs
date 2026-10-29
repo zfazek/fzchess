@@ -28,7 +28,7 @@ const NEG_INF: i32 = -22767;
 /// chains self-terminate (captures are finite) and check chains are rare, so
 /// this is only a guardrail against pathological trees; on reaching it,
 /// quiescence returns the stand-pat score.
-const QS_MAX_PLY: i32 = 32;
+const QS_MAX_PLY: i32 = 12;
 
 /// A principal-variation line: `moves[1..=length]` is the line, `value` its score.
 #[derive(Clone)]
@@ -379,6 +379,17 @@ impl<'a> Search<'a> {
                     }
                     self.board.unmake_table(false);
                 }
+            }
+
+            // If the search was aborted WHILE evaluating this move, `u` is the
+            // result of an interrupted (incomplete) sub-search and is garbage —
+            // in particular it can be the `NEG_INF` sentinel that an aborted
+            // child returns, which would otherwise surface as a bogus near-mate
+            // score. Discard it: break out WITHOUT updating value / best_line /
+            // the root report. The caller (iterative deepening) will drop this
+            // whole iteration and keep the last completed depth.
+            if self.stop_search {
+                break;
             }
 
             if dpt == 1 {
