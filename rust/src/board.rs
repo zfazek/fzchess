@@ -445,12 +445,13 @@ impl Board {
             }
         }
 
-        // 2. Active color.
-        let white_to_move = if mn == 0 {
-            self.player_to_move == WHITE
-        } else {
-            pos.color == BLACK
-        };
+        // 2. Active color. `player_to_move` is authoritative in every state:
+        // it is set by `setboard` and flipped on each `update_table`/applied
+        // move, so it is correct both for a freshly-set FEN (no moves yet) and
+        // after a sequence of moves. (The previous `pos.color`-based derivation
+        // was inverted for a just-set FEN with no moves, printing "b" for a
+        // white-to-move position.)
+        let white_to_move = self.player_to_move == WHITE;
         fen.push_str(if white_to_move { " w " } else { " b " });
 
         // 3. Castling availability.

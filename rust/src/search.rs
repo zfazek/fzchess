@@ -6,14 +6,14 @@
 //! split we adopted during the port: the board holds position state, the search
 //! holds search state.
 //!
-//! Scoring is negamax from the side-to-move's perspective. This slice (task 4)
-//! implements the recursion, MVV-LVA + killer-move ordering, quiescence via the
-//! `further` field, draw detection, and PV collection. The iterative-deepening
-//! driver and UCI `info`/`bestmove` output are layered on in task 5; here the
-//! results are collected into the `Search` struct so they can be unit-tested.
+//! Scoring is negamax from the side-to-move's perspective. This implements the
+//! recursion, MVV-LVA + killer-move ordering, a mate-aware quiescence search at
+//! the horizon (resolves pending captures/checks to kill the horizon effect,
+//! while still detecting checkmate/stalemate), draw detection, and PV
+//! collection, plus the iterative-deepening driver and UCI output.
 
 use crate::board::Board;
-use crate::eval::{DRAW, LOST, NOT_END};
+use crate::eval::{DRAW, LOST, NOT_END, WON};
 use crate::tt::{TranspositionTable, TtFlag};
 use crate::types::{Move, MAX_LEGAL_MOVES};
 use crate::util::get_ms;
@@ -25,10 +25,10 @@ const MAX_PLY: usize = 128;
 const NEG_INF: i32 = -22767;
 
 /// Safety cap on quiescence recursion depth (plies past the horizon). Capture
-/// chains self-terminate (captures are finite), so this is only a guardrail
-/// against pathological positions; normal positions go quiet long before it.
-/// On reaching the cap, quiescence returns the stand-pat score.
-const QS_MAX_PLY: i32 = 16;
+/// chains self-terminate (captures are finite) and check chains are rare, so
+/// this is only a guardrail against pathological trees; on reaching it,
+/// quiescence returns the stand-pat score.
+const QS_MAX_PLY: i32 = 32;
 
 /// A principal-variation line: `moves[1..=length]` is the line, `value` its score.
 #[derive(Clone)]
@@ -331,10 +331,19 @@ impl<'a> Search<'a> {
             self.board.update_table(alfarray[i], false);
             self.curr_line[dpt as usize] = alfarray[i];
 
-            // Horizon: at the nominal depth, hand off to the capture-only
-            // quiescence search (resolves pending exchanges) instead of a raw
-            // static eval. The old `further`/`seldepth` extension is gone —
-            // quiescence replaces it. Draw conditions are still checked first.
+            // Horizon: at the nominal depth, resolve pending tactics with a
+            // quiescence search instead of scoring the raw position. This is
+            // what eliminates the horizon effect — a position with a hanging
+            // capture or an in-progress exchange must not be scored statically.
+            //
+            // The quiescence search is MATE-AWARE (this is the fix for the bug
+            // where a forced mate sitting exactly on the horizon was missed):
+            //   * it first tests for checkmate/stalemate (no legal move), and
+            //   * when the side to move is in check it searches ALL evasions,
+            //     not just captures,
+            // so a mate delivered by a quiet move at the horizon is seen and
+            // scored as a real mate (mate-distance-adjusted), then propagates
+            // up the negamax tree. Draw conditions are checked first.
             if dpt >= self.depth {
                 self.last_ply = true;
                 if self.board.third_occurance()
@@ -495,17 +504,27 @@ impl<'a> Search<'a> {
         value
     }
 
-    /// Capture-only quiescence search from the side-to-move's perspective.
+    /// Mate-aware quiescence search from the side-to-move's perspective.
     ///
-    /// Standard stand-pat quiescence: the static evaluation is a lower bound on
-    /// the node's value (the side to move can decline to capture), so if it
-    /// already exceeds beta we fail high immediately, and otherwise it raises
-    /// alpha. Only capture moves are then searched, recursively, until the
-    /// position is quiet (no captures) — which terminates because captures are
-    /// finite. This resolves pending exchanges before the position is scored,
-    /// eliminating the horizon effect without a fixed depth cap.
+    /// Purpose: eliminate the horizon effect. Scoring a position statically at
+    /// the search horizon is unsound while captures/exchanges are still pending
+    /// (the static eval would, e.g., count a "won" piece that is actually about
+    /// to be recaptured). Quiescence extends the search along forcing lines
+    /// until the position is quiet, then scores it.
     ///
-    /// `dpt` is the current ply (for mate-distance scoring in the static eval).
+    /// Correctness (the part the earlier capture-only version got wrong):
+    ///   1. TERMINAL FIRST. Before standing pat we check for no-legal-move:
+    ///      that is checkmate (score `-(WON - dpt)`, mate-distance adjusted so a
+    ///      faster mate scores higher) or stalemate (`DRAW`). A capture-only
+    ///      quiescence that skips this never sees a mate delivered by a quiet
+    ///      move and mis-scores it as material — the original bug.
+    ///   2. IN CHECK -> SEARCH ALL EVASIONS. When the side to move is in check
+    ///      there is no "stand pat" option (you cannot decline to answer check),
+    ///      so we search every legal move, not just captures. Out of check we
+    ///      stand pat and search captures only, as usual.
+    ///
+    /// `dpt` is the current ply (for mate-distance scoring); `qply` counts plies
+    /// past the horizon for the safety cap.
     fn quiescence(&mut self, mut alfa: i32, beta: i32, dpt: i32, qply: i32) -> i32 {
         self.nodes += 1;
         // Record the deepest ply actually reached (for the UCI `seldepth`).
@@ -519,38 +538,62 @@ impl<'a> Search<'a> {
             return 0;
         }
 
-        // Stand-pat: static evaluation from the side-to-move's perspective.
-        let stand_pat = self.board.evaluation_material(dpt, self.sm);
-        // Safety cap: stop extending and return the stand-pat score. Capture
-        // chains terminate on their own; this only bounds pathological trees.
-        if qply >= QS_MAX_PLY {
-            return stand_pat;
-        }
-        if stand_pat >= beta {
-            return beta;
-        }
-        if stand_pat > alfa {
-            alfa = stand_pat;
-        }
+        // Is the side to move in check? (No stand-pat option if so.)
+        let king = if self.board.player_to_move == crate::types::WHITE {
+            self.board.movelist[self.board.move_number].pos_white_king
+        } else {
+            self.board.movelist[self.board.move_number].pos_black_king
+        };
+        let in_check = self.board.is_attacked(king, self.board.player_to_move);
 
-        // Generate legal moves and keep only captures.
+        // Terminal detection: generate legal moves up front so we can detect
+        // checkmate / stalemate before anything else.
         self.board.list_legal_moves();
         let nbr = (self.board.legal_pointer + 1) as usize;
+        if nbr == 0 {
+            // No legal move: mate if in check (mate-distance adjusted so the
+            // search prefers the quickest mate), else stalemate.
+            return if in_check { -(WON - dpt) } else { DRAW };
+        }
+
+        // Stand-pat (only when NOT in check): the static eval is a lower bound
+        // on this node's value because the side to move can decline to capture.
+        if !in_check {
+            let stand_pat = self.board.evaluation_material(dpt, self.sm);
+            // Safety cap: stop extending and return the stand-pat score.
+            if qply >= QS_MAX_PLY {
+                return stand_pat;
+            }
+            if stand_pat >= beta {
+                return beta;
+            }
+            if stand_pat > alfa {
+                alfa = stand_pat;
+            }
+        } else if qply >= QS_MAX_PLY {
+            // In check but past the safety cap: fall back to a static material
+            // score rather than extending further.
+            return self.board.evaluation_material(dpt, self.sm);
+        }
+
+        // Select the moves to search. Out of check: captures only. In check:
+        // every legal move (all check evasions), so mates are detected and the
+        // mated side is forced to try every escape.
         let en_passant = self.board.movelist[self.board.move_number].en_passant;
-        let mut caps: [i32; MAX_LEGAL_MOVES] = [0; MAX_LEGAL_MOVES];
-        let mut ncap = 0usize;
+        let mut moves: [i32; MAX_LEGAL_MOVES] = [0; MAX_LEGAL_MOVES];
+        let mut nmoves = 0usize;
         for i in 0..nbr {
             let mv = self.board.legal_moves[i];
-            if self.is_capture(mv, en_passant) {
-                caps[ncap] = mv;
-                ncap += 1;
+            if in_check || self.is_capture(mv, en_passant) {
+                moves[nmoves] = mv;
+                nmoves += 1;
             }
         }
-        // Order captures by MVV-LVA (reuse the main sorter would require the
-        // full list; here order the capture subset directly by victim/attacker).
-        self.order_captures(&mut caps[..ncap]);
+        // Order by MVV-LVA (quiet evasions sort last, which is fine).
+        self.order_captures(&mut moves[..nmoves]);
 
-        for &mv in caps.iter().take(ncap) {
+        let mut best = if in_check { NEG_INF } else { alfa };
+        for &mv in moves.iter().take(nmoves) {
             if self.stop_search {
                 break;
             }
@@ -559,14 +602,19 @@ impl<'a> Search<'a> {
             let score = -self.quiescence(-beta, -alfa, dpt + 1, qply + 1);
             self.board.invert_player_to_move();
             self.board.unmake_table(false);
+            if score > best {
+                best = score;
+            }
             if score >= beta {
-                return beta;
+                return score;
             }
             if score > alfa {
                 alfa = score;
             }
         }
-        alfa
+        // Out of check we may have had no captures (best == alfa == stand_pat
+        // raised); in check `best` holds the best evasion score.
+        best
     }
 
     /// Is `mv` a capture in the current position? A normal capture lands on a
@@ -591,8 +639,9 @@ impl<'a> Search<'a> {
         false
     }
 
-    /// Order a slice of capture moves by MVV-LVA (most valuable victim, least
-    /// valuable attacker), descending. Mirrors the main sorter's capture score.
+    /// Order a slice of moves by MVV-LVA (most valuable victim, least valuable
+    /// attacker), descending. Quiet moves (no victim) score lowest and sort to
+    /// the end — correct for the in-check evasion case.
     fn order_captures(&self, caps: &mut [i32]) {
         use crate::types::PIECE_VALUE;
         let board = &self.board;
@@ -763,5 +812,20 @@ mod tests {
         let mv = s.search_fixed_depth(3);
         assert_eq!(move2str(mv), "a1a8", "TT-off: expected Ra8, got {}", move2str(mv));
         assert_eq!(s.tt_nodes, 0, "TT-off should record zero TT hits");
+    }
+
+    #[test]
+    fn finds_mate_in_three_on_the_horizon() {
+        // Regression: a forced mate in 3 (5 plies) sitting exactly on the
+        // depth-5 horizon. A capture-only quiescence that skips terminal
+        // detection scored the (quiet) mating move as material and missed the
+        // mate; the mate-aware quiescence finds it. Expected line:
+        //   c4a5 c6b5 e6c4 b5a5 c4a4#
+        let mut b = Board::new();
+        b.setboard("rn5r/ppp3pp/2kbQn2/8/2N1p3/1P2B3/P1P2PPP/qN2K2R w K - 0 13");
+        let mut s = Search::new(&mut b);
+        let mv = s.search_fixed_depth(5);
+        assert_eq!(move2str(mv), "c4a5", "expected mating move Nca5, got {}", move2str(mv));
+        assert!(s.mate_score > 20000, "mate not scored as mate: {}", s.mate_score);
     }
 }
