@@ -327,13 +327,14 @@ impl<'a> Search<'a> {
                 break;
             }
             // At the root, report the move currently being searched (UCI).
-            if dpt == 1 {
-                println!(
-                    "info currmove {} currmovenumber {}",
-                    crate::util::move2str(alfarray[i]),
-                    i + 1
-                );
-            }
+            // Disabled temporary
+            // if dpt == 1 {
+            //     println!(
+            //         "info currmove {} currmovenumber {}",
+            //         crate::util::move2str(alfarray[i]),
+            //         i + 1
+            //     );
+            // }
             let u;
             self.board.update_table(alfarray[i], false);
             self.curr_line[dpt as usize] = alfarray[i];
@@ -732,7 +733,6 @@ impl<'a> Search<'a> {
         self.sm = self.board.sum_material(self.board.player_to_move);
         println!("info string position {}", self.board.get_fen());
 
-        let mut best_completed = self.best_move;
         let mut depth = 1;
         loop {
             self.depth = depth;
@@ -750,8 +750,6 @@ impl<'a> Search<'a> {
                 // Keep the result from the last fully completed depth.
                 break;
             }
-            // Iteration completed: commit its best move.
-            best_completed = self.best_move;
 
             // Carry this iteration's principal variation forward: copy the
             // completed best line into prev_pv[ply] so the next, deeper
@@ -781,9 +779,8 @@ impl<'a> Search<'a> {
             depth += 1;
         }
 
-        self.best_move = best_completed;
-        println!("bestmove {}", crate::util::move2str(best_completed));
-        best_completed
+        println!("bestmove {}", crate::util::move2str(self.best_move));
+        self.best_move
     }
 
     /// Set a soft time limit (ms) for the next `make_move`. 0 = no time limit.

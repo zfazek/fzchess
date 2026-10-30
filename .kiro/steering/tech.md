@@ -2,5 +2,6 @@
 
 Written in modern C++
 Building tool is CMake
-Source files are in src folder
+C++ source files are in src folder
+Rewritten in Rust under rust folder
 Engine book: performance.bin

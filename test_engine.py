@@ -2,22 +2,40 @@ import chess
 import re
 import subprocess
 import time
+from datetime import datetime
+import sys
 
 # ==================== CONFIGURATION ====================
 ENGINE_PATH = "stockfish"  # Change to your engine's filename (e.g., engine.exe)
 ENGINE_PATH = "./rust/target/release/fzchess"  # Change to your engine's filename (e.g., engine.exe)
 EPD_FILE_PATH = "bratko-kopec.epd"        # Your EPD file path
-EPD_FILE_PATH = "wac.epd"        # Your EPD file path
-MOVETIME_MS = 5000                        # Time given per position in milliseconds (1 second)
+EPD_FILE_PATH = "arasan2026.epd"        # Your EPD file path
+EPD_FILE_PATH = "wacnew.epd"        # Your EPD file path
+MOVETIME_MS = 1000                        # Time given per position in milliseconds (1 second)
 # =======================================================
+
+class Tee:
+    """Helper class to duplicate stdout/stderr to a file as well as the terminal."""
+    def __init__(self, filename):
+        self.terminal = sys.stdout
+        self.log = open(filename, "w", encoding="utf-8")
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+        self.log.flush()
+
+    def flush(self):
+        self.terminal.flush()
+        self.log.flush()
 
 def send_uci_command(process, command, wait_for=None):
     """Sends a command to the engine and optionally waits for a specific response."""
     # Debug print to see what Python sends
-    # print(f"-> Sending: {command}") 
+    # print(f"-> Sending: {command}")
     process.stdin.write(f"{command}\n")
     process.stdin.flush()
-    
+
     if not wait_for:
         return []
 
@@ -27,10 +45,10 @@ def send_uci_command(process, command, wait_for=None):
         if not line: # Engine process died or closed stream
             break
         line = line.strip()
-        
+
         # Un-comment this line to see EVERY line your Rust engine prints!
-        # print(f"<- Engine: {line}") 
-        
+        # print(f"<- Engine: {line}")
+
         lines.append(line)
         if line.startswith(wait_for):
             break
@@ -45,10 +63,10 @@ def parse_epd_line(line):
 
     # The first part contains the FEN and usually the first opcode (like bm)
     main_part = parts[0]
-    
+
     # Extract Best Move (bm) using regex
     bm_match = re.search(r'\bbm\s+([^;]+)', line)
-    best_moves = [m.strip() for m in bm_match.group(1).split(',')] if bm_match else []
+    best_moves = [m.strip() for m in bm_match.group(1).split(' ')] if bm_match else []
 
     # Extract ID if present
     id_match = re.search(r'\bid\s+"([^"]+)"', line)
@@ -63,8 +81,8 @@ def parse_epd_line(line):
     return clean_fen, best_moves, pos_id
 
 def run_test_suite():
-    print(f"--> Starting test suite using: {ENGINE_PATH}")
-    
+    print(f"--> Starting test suite using: {ENGINE_PATH}, time: {MOVETIME_MS} ms")
+
     # Start the engine process
     try:
         engine = subprocess.Popen(
@@ -109,8 +127,10 @@ def run_test_suite():
         send_uci_command(engine, f"position fen {fen}")
 
         # Tell engine to think -> CRUCIAL: Must wait explicitly for "bestmove"
+        test_start_time = time.time()
         engine_output = send_uci_command(engine, f"go movetime {MOVETIME_MS}", wait_for="bestmove")
-        
+        elapsed_time = time.time() - test_start_time
+
         # Parse the chosen move from the returned lines
         chosen_move = None
         for output_line in engine_output:
@@ -122,6 +142,7 @@ def run_test_suite():
 
         print(f"  Expected (SAN): {expected_moves}")
         print(f"  Engine played:  {chosen_move}")
+        print(f"  Elapsed time:   {elapsed_time * 1000:.1f} ms")
 
         # Set up the board with the position's FEN
         board = chess.Board(fen)
@@ -132,22 +153,22 @@ def run_test_suite():
             for san_move in expected_moves:
                 parsed_move = board.parse_san(san_move)
                 expected_coordinate_moves.append(parsed_move.uci())
-                
+
             # Compare the engine's string output directly to the converted list
             if chosen_move in expected_coordinate_moves:
-                print("  Result: MATCH (+1.0)")
+                print("  Result: MATCH   (+1.0)")
                 score += 1.0
             else:
-                print("  Result: MISSED (0.0)")
-                
+                print("  Result: MISSED  (0.0)")
+
         except ValueError:
 
             # Fallback: if the file was already in LAN format, compare strings directly
             if chosen_move in expected_moves:
-                print("  Result: MATCH (+1.0)")
+                print("  Result: MATCH   (+1.0)")
                 score += 1.0
             else:
-                print("  Result: MISSED (0.0)")
+                print("  Result: MISSED  (0.0)")
 
     # Clean up and close engine
     send_uci_command(engine, "quit")
@@ -165,5 +186,16 @@ def run_test_suite():
         print("No valid positions parsed.")
 
 if __name__ == "__main__":
-    run_test_suite()
+    start_time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+    report_filename = f"test_report_{start_time_str}.txt"
+    
+    original_stdout = sys.stdout
+    tee = Tee(report_filename)
+    sys.stdout = tee
+    try:
+        run_test_suite()
+    finally:
+        sys.stdout = original_stdout
+        tee.log.close()
+        print(f"\nReport saved successfully to {report_filename}")
 

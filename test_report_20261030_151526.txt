@@ -1,0 +1,1807 @@
+--> Starting test suite using: ./rust/target/release/fzchess, time: 1000 ms
+
+[WAC.001] Testing Position 1...
+  Expected (SAN): ['Qg6']
+  Engine played:  g3g6
+  Elapsed time:   15.1 ms
+  Result: MATCH   (+1.0)
+
+[WAC.002] Testing Position 2...
+  Expected (SAN): ['Rxb2']
+  Engine played:  h7h5
+  Elapsed time:   1000.5 ms
+  Result: MISSED  (0.0)
+
+[WAC.003] Testing Position 3...
+  Expected (SAN): ['Rg3']
+  Engine played:  e3g3
+  Elapsed time:   1001.2 ms
+  Result: MATCH   (+1.0)
+
+[WAC.004] Testing Position 4...
+  Expected (SAN): ['Qxh7+']
+  Engine played:  h6h7
+  Elapsed time:   0.8 ms
+  Result: MATCH   (+1.0)
+
+[WAC.005] Testing Position 5...
+  Expected (SAN): ['Qc4+']
+  Engine played:  c6c4
+  Elapsed time:   0.6 ms
+  Result: MATCH   (+1.0)
+
+[WAC.006] Testing Position 6...
+  Expected (SAN): ['Rb7']
+  Engine played:  b6b7
+  Elapsed time:   999.9 ms
+  Result: MATCH   (+1.0)
+
+[WAC.007] Testing Position 7...
+  Expected (SAN): ['Ne3']
+  Engine played:  g4e3
+  Elapsed time:   1000.7 ms
+  Result: MATCH   (+1.0)
+
+[WAC.008] Testing Position 8...
+  Expected (SAN): ['Rf7']
+  Engine played:  e7f7
+  Elapsed time:   1000.5 ms
+  Result: MATCH   (+1.0)
+
+[WAC.009] Testing Position 9...
+  Expected (SAN): ['Bh2+']
+  Engine played:  h4g4
+  Elapsed time:   1000.4 ms
+  Result: MISSED  (0.0)
+
+[WAC.010] Testing Position 10...
+  Expected (SAN): ['Rxh7']
+  Engine played:  h4h7
+  Elapsed time:   1000.3 ms
+  Result: MATCH   (+1.0)
+
+[WAC.011] Testing Position 11...
+  Expected (SAN): ['Bxc6']
+  Engine played:  f3c6
+  Elapsed time:   999.8 ms
+  Result: MATCH   (+1.0)
+
+[WAC.012] Testing Position 12...
+  Expected (SAN): ['Qxf3+']
+  Engine played:  g4f3
+  Elapsed time:   2.9 ms
+  Result: MATCH   (+1.0)
+
+[WAC.013] Testing Position 13...
+  Expected (SAN): ['Qxf8+']
+  Engine played:  f1f8
+  Elapsed time:   1000.2 ms
+  Result: MATCH   (+1.0)
+
+[WAC.014] Testing Position 14...
+  Expected (SAN): ['Qxh7+']
+  Engine played:  h3h7
+  Elapsed time:   1000.5 ms
+  Result: MATCH   (+1.0)
+
+[WAC.015] Testing Position 15...
+  Expected (SAN): ['Rxb7']
+  Engine played:  b8b7
+  Elapsed time:   1000.6 ms
+  Result: MATCH   (+1.0)
+
+[WAC.016] Testing Position 16...
+  Expected (SAN): ['Nc3']
+  Engine played:  e2c3
+  Elapsed time:   1001.0 ms
+  Result: MATCH   (+1.0)
+
+[WAC.017] Testing Position 17...
+  Expected (SAN): ['Ne5']
+  Engine played:  c4e5
+  Elapsed time:   1000.9 ms
+  Result: MATCH   (+1.0)
+
+[WAC.018] Testing Position 18...
+  Expected (SAN): ['Rh8']
+  Engine played:  g1h1
+  Elapsed time:   1000.8 ms
+  Result: MISSED  (0.0)
+
+[WAC.019] Testing Position 19...
+  Expected (SAN): ['c6']
+  Engine played:  c5c6
+  Elapsed time:   1000.5 ms
+  Result: MATCH   (+1.0)
+
+[WAC.020] Testing Position 20...
+  Expected (SAN): ['Bb5']
+  Engine played:  d7b5
+  Elapsed time:   1000.0 ms
+  Result: MATCH   (+1.0)
+
+[WAC.021] Testing Position 21...
+  Expected (SAN): ['Qh6']
+  Engine played:  d2h6
+  Elapsed time:   1001.1 ms
+  Result: MATCH   (+1.0)
+
+[WAC.022] Testing Position 22...
+  Expected (SAN): ['Ba2', 'Nxf7']
+  Engine played:  g5f7
+  Elapsed time:   1000.9 ms
+  Result: MATCH   (+1.0)
+
+[WAC.023] Testing Position 23...
+  Expected (SAN): ['g4']
+  Engine played:  g2g4
+  Elapsed time:   1000.7 ms
+  Result: MATCH   (+1.0)
+
+[WAC.024] Testing Position 24...
+  Expected (SAN): ['Bd4']
+  Engine played:  g7d4
+  Elapsed time:   1000.3 ms
+  Result: MATCH   (+1.0)
+
+[WAC.025] Testing Position 25...
+  Expected (SAN): ['Qh4+']
+  Engine played:  g4h4
+  Elapsed time:   999.9 ms
+  Result: MATCH   (+1.0)
+
+[WAC.026] Testing Position 26...
+  Expected (SAN): ['Bf5']
+  Engine played:  d7f5
+  Elapsed time:   1001.0 ms
+  Result: MATCH   (+1.0)
+
+[WAC.027] Testing Position 27...
+  Expected (SAN): ['Qf8+']
+  Engine played:  c1b1
+  Elapsed time:   0.6 ms
+  Result: MISSED  (0.0)
+
+[WAC.028] Testing Position 28...
+  Expected (SAN): ['Qe1+']
+  Engine played:  b4e1
+  Elapsed time:   999.9 ms
+  Result: MATCH   (+1.0)
+
+[WAC.029] Testing Position 29...
+  Expected (SAN): ['c6']
+  Engine played:  c5c6
+  Elapsed time:   999.7 ms
+  Result: MATCH   (+1.0)
+
+[WAC.030] Testing Position 30...
+  Expected (SAN): ['Nxd6']
+  Engine played:  e4d6
+  Elapsed time:   1000.0 ms
+  Result: MATCH   (+1.0)
+
+[WAC.031] Testing Position 31...
+  Expected (SAN): ['Qxa8', 'd6', 'dxe6', 'g3']
+  Engine played:  d5d6
+  Elapsed time:   1000.7 ms
+  Result: MATCH   (+1.0)
+
+[WAC.032] Testing Position 32...
+  Expected (SAN): ['Qd8+']
+  Engine played:  d1d8
+  Elapsed time:   999.7 ms
+  Result: MATCH   (+1.0)
+
+[WAC.033] Testing Position 33...
+  Expected (SAN): ['Qe5+', 'Qf4']
+  Engine played:  f2f4
+  Elapsed time:   1001.3 ms
+  Result: MISSED  (0.0)
+
+[WAC.034] Testing Position 34...
+  Expected (SAN): ['Bg1']
+  Engine played:  d4g1
+  Elapsed time:   1000.5 ms
+  Result: MATCH   (+1.0)
+
+[WAC.035] Testing Position 35...
+  Expected (SAN): ['Rxh7+']
+  Engine played:  h4h7
+  Elapsed time:   94.6 ms
+  Result: MATCH   (+1.0)
+
+[WAC.036] Testing Position 36...
+  Expected (SAN): ['Re1+']
+  Engine played:  e7e1
+  Elapsed time:   999.9 ms
+  Result: MATCH   (+1.0)
+
+[WAC.037] Testing Position 37...
+  Expected (SAN): ['Nxd4+']
+  Engine played:  c6d4
+  Elapsed time:   1000.1 ms
+  Result: MATCH   (+1.0)
+
+[WAC.038] Testing Position 38...
+  Expected (SAN): ['Qd3', 'Rd8+']
+  Engine played:  d2d8
+  Elapsed time:   1001.0 ms
+  Result: MATCH   (+1.0)
+
+[WAC.039] Testing Position 39...
+  Expected (SAN): ['Na4']
+  Engine played:  c3a4
+  Elapsed time:   1000.6 ms
+  Result: MATCH   (+1.0)
+
+[WAC.040] Testing Position 40...
+  Expected (SAN): ['Rc8']
+  Engine played:  d8c8
+  Elapsed time:   1000.7 ms
+  Result: MATCH   (+1.0)
+
+[WAC.041] Testing Position 41...
+  Expected (SAN): ['Ka5', 'Kc5', 'b7']
+  Engine played:  b5a5
+  Elapsed time:   1000.7 ms
+  Result: MATCH   (+1.0)
+
+[WAC.042] Testing Position 42...
+  Expected (SAN): ['Ba5']
+  Engine played:  b4a5
+  Elapsed time:   999.6 ms
+  Result: MATCH   (+1.0)
+
+[WAC.043] Testing Position 43...
+  Expected (SAN): ['Be7', 'Qxa8']
+  Engine played:  a3e7
+  Elapsed time:   999.8 ms
+  Result: MATCH   (+1.0)
+
+[WAC.044] Testing Position 44...
+  Expected (SAN): ['dxc4']
+  Engine played:  d5c4
+  Elapsed time:   1000.4 ms
+  Result: MATCH   (+1.0)
+
+[WAC.045] Testing Position 45...
+  Expected (SAN): ['Qxa1']
+  Engine played:  f1a1
+  Elapsed time:   1000.5 ms
+  Result: MATCH   (+1.0)
+
+[WAC.046] Testing Position 46...
+  Expected (SAN): ['Nb5']
+  Engine played:  f1e2
+  Elapsed time:   1001.2 ms
+  Result: MISSED  (0.0)
+
+[WAC.047] Testing Position 47...
+  Expected (SAN): ['Nxd4']
+  Engine played:  c6d4
+  Elapsed time:   1000.3 ms
+  Result: MATCH   (+1.0)
+
+[WAC.048] Testing Position 48...
+  Expected (SAN): ['Rb4']
+  Engine played:  b8b4
+  Elapsed time:   1000.8 ms
+  Result: MATCH   (+1.0)
+
+[WAC.049] Testing Position 49...
+  Expected (SAN): ['Qxh7+']
+  Engine played:  h5h6
+  Elapsed time:   1000.2 ms
+  Result: MISSED  (0.0)
+
+[WAC.050] Testing Position 50...
+  Expected (SAN): ['Rxb6+']
+  Engine played:  b7b6
+  Elapsed time:   2.1 ms
+  Result: MATCH   (+1.0)
+
+[WAC.051] Testing Position 51...
+  Expected (SAN): ['Rg4+']
+  Engine played:  f4g4
+  Elapsed time:   1000.2 ms
+  Result: MATCH   (+1.0)
+
+[WAC.052] Testing Position 52...
+  Expected (SAN): ['Re7', 'c4']
+  Engine played:  e1e7
+  Elapsed time:   1000.7 ms
+  Result: MATCH   (+1.0)
+
+[WAC.053] Testing Position 53...
+  Expected (SAN): ['Re1']
+  Engine played:  e3e1
+  Elapsed time:   999.8 ms
+  Result: MATCH   (+1.0)
+
+[WAC.054] Testing Position 54...
+  Expected (SAN): ['Qh1+']
+  Engine played:  h5h1
+  Elapsed time:   4.6 ms
+  Result: MATCH   (+1.0)
+
+[WAC.055] Testing Position 55...
+  Expected (SAN): ['Qxg7+']
+  Engine played:  c2c4
+  Elapsed time:   1000.7 ms
+  Result: MISSED  (0.0)
+
+[WAC.056] Testing Position 56...
+  Expected (SAN): ['Bxf2+']
+  Engine played:  c5f2
+  Elapsed time:   1000.2 ms
+  Result: MATCH   (+1.0)
+
+[WAC.057] Testing Position 57...
+  Expected (SAN): ['Rf8+']
+  Engine played:  f3f8
+  Elapsed time:   0.6 ms
+  Result: MATCH   (+1.0)
+
+[WAC.058] Testing Position 58...
+  Expected (SAN): ['Qd1+']
+  Engine played:  c6c5
+  Elapsed time:   1000.2 ms
+  Result: MISSED  (0.0)
+
+[WAC.059] Testing Position 59...
+  Expected (SAN): ['Nd5']
+  Engine played:  c3d5
+  Elapsed time:   1000.7 ms
+  Result: MATCH   (+1.0)
+
+[WAC.060] Testing Position 60...
+  Expected (SAN): ['Qh8+']
+  Engine played:  h3h8
+  Elapsed time:   0.9 ms
+  Result: MATCH   (+1.0)
+
+[WAC.061] Testing Position 61...
+  Expected (SAN): ['Qf7+']
+  Engine played:  f3f7
+  Elapsed time:   0.6 ms
+  Result: MATCH   (+1.0)
+
+[WAC.062] Testing Position 62...
+  Expected (SAN): ['Rxg3+']
+  Engine played:  g6g3
+  Elapsed time:   1000.3 ms
+  Result: MATCH   (+1.0)
+
+[WAC.063] Testing Position 63...
+  Expected (SAN): ['Nxf7']
+  Engine played:  e5f7
+  Elapsed time:   1000.9 ms
+  Result: MATCH   (+1.0)
+
+[WAC.064] Testing Position 64...
+  Expected (SAN): ['g4+']
+  Engine played:  g2g4
+  Elapsed time:   7.8 ms
+  Result: MATCH   (+1.0)
+
+[WAC.065] Testing Position 65...
+  Expected (SAN): ['Ne7+']
+  Engine played:  d5e7
+  Elapsed time:   1000.4 ms
+  Result: MATCH   (+1.0)
+
+[WAC.066] Testing Position 66...
+  Expected (SAN): ['Qxe5']
+  Engine played:  c7e5
+  Elapsed time:   1000.5 ms
+  Result: MATCH   (+1.0)
+
+[WAC.067] Testing Position 67...
+  Expected (SAN): ['Rxd5']
+  Engine played:  e5d5
+  Elapsed time:   1000.4 ms
+  Result: MATCH   (+1.0)
+
+[WAC.068] Testing Position 68...
+  Expected (SAN): ['Qxe3']
+  Engine played:  e2e3
+  Elapsed time:   1000.9 ms
+  Result: MATCH   (+1.0)
+
+[WAC.069] Testing Position 69...
+  Expected (SAN): ['f3', 'h3']
+  Engine played:  f2f3
+  Elapsed time:   1000.6 ms
+  Result: MATCH   (+1.0)
+
+[WAC.070] Testing Position 70...
+  Expected (SAN): ['Na2+']
+  Engine played:  b4a2
+  Elapsed time:   1001.0 ms
+  Result: MATCH   (+1.0)
+
+[WAC.071] Testing Position 71...
+  Expected (SAN): ['Nxa7+']
+  Engine played:  b1b3
+  Elapsed time:   1000.8 ms
+  Result: MISSED  (0.0)
+
+[WAC.072] Testing Position 72...
+  Expected (SAN): ['e6']
+  Engine played:  e5e6
+  Elapsed time:   1000.7 ms
+  Result: MATCH   (+1.0)
+
+[WAC.073] Testing Position 73...
+  Expected (SAN): ['Qd2']
+  Engine played:  e2d2
+  Elapsed time:   1001.2 ms
+  Result: MATCH   (+1.0)
+
+[WAC.074] Testing Position 74...
+  Expected (SAN): ['Qf1+']
+  Engine played:  f4f1
+  Elapsed time:   1000.4 ms
+  Result: MATCH   (+1.0)
+
+[WAC.075] Testing Position 75...
+  Expected (SAN): ['Qd6']
+  Engine played:  d7d6
+  Elapsed time:   1000.6 ms
+  Result: MATCH   (+1.0)
+
+[WAC.076] Testing Position 76...
+  Expected (SAN): ['Bxf6']
+  Engine played:  f5h6
+  Elapsed time:   1000.6 ms
+  Result: MISSED  (0.0)
+
+[WAC.077] Testing Position 77...
+  Expected (SAN): ['Ng3']
+  Engine played:  f5g3
+  Elapsed time:   1000.3 ms
+  Result: MATCH   (+1.0)
+
+[WAC.078] Testing Position 78...
+  Expected (SAN): ['Ng5+']
+  Engine played:  e4g5
+  Elapsed time:   1000.8 ms
+  Result: MATCH   (+1.0)
+
+[WAC.079] Testing Position 79...
+  Expected (SAN): ['Qxh2+']
+  Engine played:  h3h2
+  Elapsed time:   368.4 ms
+  Result: MATCH   (+1.0)
+
+[WAC.080] Testing Position 80...
+  Expected (SAN): ['Ra1']
+  Engine played:  d4d5
+  Elapsed time:   1000.1 ms
+  Result: MISSED  (0.0)
+
+[WAC.081] Testing Position 81...
+  Expected (SAN): ['Bd6']
+  Engine played:  e7d6
+  Elapsed time:   999.7 ms
+  Result: MATCH   (+1.0)
+
+[WAC.082] Testing Position 82...
+  Expected (SAN): ['Bh7+']
+  Engine played:  f1f2
+  Elapsed time:   1000.8 ms
+  Result: MISSED  (0.0)
+
+[WAC.083] Testing Position 83...
+  Expected (SAN): ['Qxd7']
+  Engine played:  d4d7
+  Elapsed time:   999.8 ms
+  Result: MATCH   (+1.0)
+
+[WAC.084] Testing Position 84...
+  Expected (SAN): ['Qg8+']
+  Engine played:  d5g8
+  Elapsed time:   4.8 ms
+  Result: MATCH   (+1.0)
+
+[WAC.085] Testing Position 85...
+  Expected (SAN): ['Na6']
+  Engine played:  c5a6
+  Elapsed time:   1000.1 ms
+  Result: MATCH   (+1.0)
+
+[WAC.086] Testing Position 86...
+  Expected (SAN): ['Ng4+']
+  Engine played:  a7a5
+  Elapsed time:   1000.6 ms
+  Result: MISSED  (0.0)
+
+[WAC.087] Testing Position 87...
+  Expected (SAN): ['Rxe5']
+  Engine played:  c5c4
+  Elapsed time:   1000.6 ms
+  Result: MISSED  (0.0)
+
+[WAC.088] Testing Position 88...
+  Expected (SAN): ['Rxg2+']
+  Engine played:  e6a2
+  Elapsed time:   1000.8 ms
+  Result: MISSED  (0.0)
+
+[WAC.089] Testing Position 89...
+  Expected (SAN): ['g5']
+  Engine played:  g7g5
+  Elapsed time:   1000.3 ms
+  Result: MATCH   (+1.0)
+
+[WAC.090] Testing Position 90...
+  Expected (SAN): ['Nxg7']
+  Engine played:  f5g7
+  Elapsed time:   1000.5 ms
+  Result: MATCH   (+1.0)
+
+[WAC.091] Testing Position 91...
+  Expected (SAN): ['Be6']
+  Engine played:  d4c2
+  Elapsed time:   1000.8 ms
+  Result: MISSED  (0.0)
+
+[WAC.092] Testing Position 92...
+  Expected (SAN): ['Bxg4']
+  Engine played:  a5b4
+  Elapsed time:   1001.1 ms
+  Result: MISSED  (0.0)
+
+[WAC.093] Testing Position 93...
+  Expected (SAN): ['Bh6']
+  Engine played:  c1h6
+  Elapsed time:   1000.4 ms
+  Result: MATCH   (+1.0)
+
+[WAC.094] Testing Position 94...
+  Expected (SAN): ['e4+']
+  Engine played:  e5e4
+  Elapsed time:   1001.1 ms
+  Result: MATCH   (+1.0)
+
+[WAC.095] Testing Position 95...
+  Expected (SAN): ['Ng4+']
+  Engine played:  f6g4
+  Elapsed time:   1000.2 ms
+  Result: MATCH   (+1.0)
+
+[WAC.096] Testing Position 96...
+  Expected (SAN): ['Qd8+', 'b3']
+  Engine played:  b1a1
+  Elapsed time:   0.6 ms
+  Result: MISSED  (0.0)
+
+[WAC.097] Testing Position 97...
+  Expected (SAN): ['Qa8+']
+  Engine played:  g2a8
+  Elapsed time:   37.0 ms
+  Result: MATCH   (+1.0)
+
+[WAC.098] Testing Position 98...
+  Expected (SAN): ['Nxe4']
+  Engine played:  c5b3
+  Elapsed time:   1000.4 ms
+  Result: MISSED  (0.0)
+
+[WAC.099] Testing Position 99...
+  Expected (SAN): ['Rh5']
+  Engine played:  e5h5
+  Elapsed time:   5.7 ms
+  Result: MATCH   (+1.0)
+
+[WAC.100] Testing Position 100...
+  Expected (SAN): ['Be3', 'b6+']
+  Engine played:  d2e3
+  Elapsed time:   1000.4 ms
+  Result: MATCH   (+1.0)
+
+[WAC.101] Testing Position 101...
+  Expected (SAN): ['Bc3']
+  Engine played:  a7a5
+  Elapsed time:   999.9 ms
+  Result: MISSED  (0.0)
+
+[WAC.102] Testing Position 102...
+  Expected (SAN): ['Qxf8+']
+  Engine played:  c8f8
+  Elapsed time:   14.3 ms
+  Result: MATCH   (+1.0)
+
+[WAC.103] Testing Position 103...
+  Expected (SAN): ['Qxg6+']
+  Engine played:  h6g6
+  Elapsed time:   497.1 ms
+  Result: MATCH   (+1.0)
+
+[WAC.104] Testing Position 104...
+  Expected (SAN): ['Qxh5']
+  Engine played:  e2h5
+  Elapsed time:   10.0 ms
+  Result: MATCH   (+1.0)
+
+[WAC.105] Testing Position 105...
+  Expected (SAN): ['Bxg3', 'Qxh4']
+  Engine played:  h5h4
+  Elapsed time:   1000.5 ms
+  Result: MATCH   (+1.0)
+
+[WAC.106] Testing Position 106...
+  Expected (SAN): ['Nf2+']
+  Engine played:  e4f2
+  Elapsed time:   1000.7 ms
+  Result: MATCH   (+1.0)
+
+[WAC.107] Testing Position 107...
+  Expected (SAN): ['Nb5']
+  Engine played:  d4b5
+  Elapsed time:   1000.4 ms
+  Result: MATCH   (+1.0)
+
+[WAC.108] Testing Position 108...
+  Expected (SAN): ['Qe5']
+  Engine played:  c5e5
+  Elapsed time:   1000.9 ms
+  Result: MATCH   (+1.0)
+
+[WAC.109] Testing Position 109...
+  Expected (SAN): ['c3']
+  Engine played:  c4c3
+  Elapsed time:   1001.4 ms
+  Result: MATCH   (+1.0)
+
+[WAC.110] Testing Position 110...
+  Expected (SAN): ['Be3']
+  Engine played:  a7e3
+  Elapsed time:   1000.0 ms
+  Result: MATCH   (+1.0)
+
+[WAC.111] Testing Position 111...
+  Expected (SAN): ['Qf1+']
+  Engine played:  g1f1
+  Elapsed time:   1000.3 ms
+  Result: MATCH   (+1.0)
+
+[WAC.112] Testing Position 112...
+  Expected (SAN): ['Rxe6']
+  Engine played:  e1e6
+  Elapsed time:   1001.2 ms
+  Result: MATCH   (+1.0)
+
+[WAC.113] Testing Position 113...
+  Expected (SAN): ['Qxf6']
+  Engine played:  d8f6
+  Elapsed time:   1000.2 ms
+  Result: MATCH   (+1.0)
+
+[WAC.114] Testing Position 114...
+  Expected (SAN): ['Bxh7+']
+  Engine played:  d3h7
+  Elapsed time:   1000.8 ms
+  Result: MATCH   (+1.0)
+
+[WAC.115] Testing Position 115...
+  Expected (SAN): ['Nd6']
+  Engine played:  e8d6
+  Elapsed time:   1000.7 ms
+  Result: MATCH   (+1.0)
+
+[WAC.116] Testing Position 116...
+  Expected (SAN): ['Rd2']
+  Engine played:  h4f4
+  Elapsed time:   1000.9 ms
+  Result: MISSED  (0.0)
+
+[WAC.117] Testing Position 117...
+  Expected (SAN): ['Ne4']
+  Engine played:  d6e4
+  Elapsed time:   1001.3 ms
+  Result: MATCH   (+1.0)
+
+[WAC.118] Testing Position 118...
+  Expected (SAN): ['Rh4']
+  Engine played:  f1e1
+  Elapsed time:   1000.2 ms
+  Result: MISSED  (0.0)
+
+[WAC.119] Testing Position 119...
+  Expected (SAN): ['Qxd3']
+  Engine played:  d8d3
+  Elapsed time:   999.5 ms
+  Result: MATCH   (+1.0)
+
+[WAC.120] Testing Position 120...
+  Expected (SAN): ['Rhg1', 'g6']
+  Engine played:  f6g7
+  Elapsed time:   1000.1 ms
+  Result: MISSED  (0.0)
+
+[WAC.121] Testing Position 121...
+  Expected (SAN): ['Bxf3+']
+  Engine played:  c6f3
+  Elapsed time:   1000.5 ms
+  Result: MATCH   (+1.0)
+
+[WAC.122] Testing Position 122...
+  Expected (SAN): ['Rxf1+']
+  Engine played:  d1f1
+  Elapsed time:   1000.9 ms
+  Result: MATCH   (+1.0)
+
+[WAC.123] Testing Position 123...
+  Expected (SAN): ['Bxd5', 'Rc7', 'Re6']
+  Engine played:  e7c7
+  Elapsed time:   1000.1 ms
+  Result: MATCH   (+1.0)
+
+[WAC.124] Testing Position 124...
+  Expected (SAN): ['g3']
+  Engine played:  g4g3
+  Elapsed time:   1000.8 ms
+  Result: MATCH   (+1.0)
+
+[WAC.125] Testing Position 125...
+  Expected (SAN): ['Bxd4+']
+  Engine played:  b6d4
+  Elapsed time:   1000.5 ms
+  Result: MATCH   (+1.0)
+
+[WAC.126] Testing Position 126...
+  Expected (SAN): ['Rxc6+']
+  Engine played:  f6c6
+  Elapsed time:   1000.1 ms
+  Result: MATCH   (+1.0)
+
+[WAC.127] Testing Position 127...
+  Expected (SAN): ['Rxb7']
+  Engine played:  b2b7
+  Elapsed time:   1000.3 ms
+  Result: MATCH   (+1.0)
+
+[WAC.128] Testing Position 128...
+  Expected (SAN): ['Qg6']
+  Engine played:  f7g6
+  Elapsed time:   999.8 ms
+  Result: MATCH   (+1.0)
+
+[WAC.129] Testing Position 129...
+  Expected (SAN): ['Bf3']
+  Engine played:  a4e8
+  Elapsed time:   1000.4 ms
+  Result: MISSED  (0.0)
+
+[WAC.130] Testing Position 130...
+  Expected (SAN): ['Qh6', 'Qh8']
+  Engine played:  f6h6
+  Elapsed time:   1000.5 ms
+  Result: MISSED  (0.0)
+
+[WAC.131] Testing Position 131...
+  Expected (SAN): ['Re8']
+  Engine played:  e1e8
+  Elapsed time:   1000.3 ms
+  Result: MATCH   (+1.0)
+
+[WAC.132] Testing Position 132...
+  Expected (SAN): ['Re1']
+  Engine played:  e5e1
+  Elapsed time:   21.6 ms
+  Result: MATCH   (+1.0)
+
+[WAC.133] Testing Position 133...
+  Expected (SAN): ['Bh4']
+  Engine played:  g3h4
+  Elapsed time:   1000.2 ms
+  Result: MATCH   (+1.0)
+
+[WAC.134] Testing Position 134...
+  Expected (SAN): ['Rd1+']
+  Engine played:  g8g7
+  Elapsed time:   999.9 ms
+  Result: MISSED  (0.0)
+
+[WAC.135] Testing Position 135...
+  Expected (SAN): ['Nd4']
+  Engine played:  e6d4
+  Elapsed time:   1001.0 ms
+  Result: MATCH   (+1.0)
+
+[WAC.136] Testing Position 136...
+  Expected (SAN): ['Rc8+']
+  Engine played:  c1c8
+  Elapsed time:   0.7 ms
+  Result: MATCH   (+1.0)
+
+[WAC.137] Testing Position 137...
+  Expected (SAN): ['Rd7']
+  Engine played:  d1d7
+  Elapsed time:   1001.3 ms
+  Result: MATCH   (+1.0)
+
+[WAC.138] Testing Position 138...
+  Expected (SAN): ['h5']
+  Engine played:  d3e3
+  Elapsed time:   1000.7 ms
+  Result: MISSED  (0.0)
+
+[WAC.139] Testing Position 139...
+  Expected (SAN): ['Nf6+']
+  Engine played:  f2g3
+  Elapsed time:   1001.0 ms
+  Result: MISSED  (0.0)
+
+[WAC.140] Testing Position 140...
+  Expected (SAN): ['Bc7', 'Rc7']
+  Engine played:  c3c7
+  Elapsed time:   1000.8 ms
+  Result: MATCH   (+1.0)
+
+[WAC.141] Testing Position 141...
+  Expected (SAN): ['Qxf4']
+  Engine played:  g2f1
+  Elapsed time:   1000.8 ms
+  Result: MISSED  (0.0)
+
+[WAC.142] Testing Position 142...
+  Expected (SAN): ['Re8', 'f6+']
+  Engine played:  e1e8
+  Elapsed time:   1000.7 ms
+  Result: MATCH   (+1.0)
+
+[WAC.143] Testing Position 143...
+  Expected (SAN): ['Rxh6+']
+  Engine played:  g6h6
+  Elapsed time:   96.9 ms
+  Result: MATCH   (+1.0)
+
+[WAC.144] Testing Position 144...
+  Expected (SAN): ['d3']
+  Engine played:  d4d3
+  Elapsed time:   1000.2 ms
+  Result: MATCH   (+1.0)
+
+[WAC.145] Testing Position 145...
+  Expected (SAN): ['Re8']
+  Engine played:  g5f6
+  Elapsed time:   1000.2 ms
+  Result: MISSED  (0.0)
+
+[WAC.146] Testing Position 146...
+  Expected (SAN): ['Bc8', 'Bd3', 'Bh3']
+  Engine played:  f5h3
+  Elapsed time:   1000.7 ms
+  Result: MATCH   (+1.0)
+
+[WAC.147] Testing Position 147...
+  Expected (SAN): ['Nxg4']
+  Engine played:  f6g4
+  Elapsed time:   1001.0 ms
+  Result: MATCH   (+1.0)
+
+[WAC.148] Testing Position 148...
+  Expected (SAN): ['Rxg7']
+  Engine played:  g1g7
+  Elapsed time:   1000.1 ms
+  Result: MATCH   (+1.0)
+
+[WAC.149] Testing Position 149...
+  Expected (SAN): ['Bxg2']
+  Engine played:  e4g2
+  Elapsed time:   1000.1 ms
+  Result: MATCH   (+1.0)
+
+[WAC.150] Testing Position 150...
+  Expected (SAN): ['Ba3', 'Be5', 'Bf8', 'e3']
+  Engine played:  b2e2
+  Elapsed time:   1000.7 ms
+  Result: MISSED  (0.0)
+
+[WAC.151] Testing Position 151...
+  Expected (SAN): ['Nc3']
+  Engine played:  a4c3
+  Elapsed time:   1000.6 ms
+  Result: MATCH   (+1.0)
+
+[WAC.152] Testing Position 152...
+  Expected (SAN): ['Ne4']
+  Engine played:  c3e4
+  Elapsed time:   1000.2 ms
+  Result: MATCH   (+1.0)
+
+[WAC.153] Testing Position 153...
+  Expected (SAN): ['Nxd4']
+  Engine played:  b5d4
+  Elapsed time:   1001.0 ms
+  Result: MATCH   (+1.0)
+
+[WAC.154] Testing Position 154...
+  Expected (SAN): ['Qxf7+']
+  Engine played:  f2f7
+  Elapsed time:   5.0 ms
+  Result: MATCH   (+1.0)
+
+[WAC.155] Testing Position 155...
+  Expected (SAN): ['d6']
+  Engine played:  c7c8
+  Elapsed time:   1000.0 ms
+  Result: MISSED  (0.0)
+
+[WAC.156] Testing Position 156...
+  Expected (SAN): ['Qxh6+']
+  Engine played:  h3h6
+  Elapsed time:   3.2 ms
+  Result: MATCH   (+1.0)
+
+[WAC.157] Testing Position 157...
+  Expected (SAN): ['Ne7+']
+  Engine played:  d5e7
+  Elapsed time:   1000.6 ms
+  Result: MATCH   (+1.0)
+
+[WAC.158] Testing Position 158...
+  Expected (SAN): ['Rxg7+']
+  Engine played:  e7g7
+  Elapsed time:   76.2 ms
+  Result: MATCH   (+1.0)
+
+[WAC.159] Testing Position 159...
+  Expected (SAN): ['Ne6+']
+  Engine played:  g5e6
+  Elapsed time:   1000.4 ms
+  Result: MATCH   (+1.0)
+
+[WAC.160] Testing Position 160...
+  Expected (SAN): ['Qxd7+']
+  Engine played:  g4d7
+  Elapsed time:   10.5 ms
+  Result: MATCH   (+1.0)
+
+[WAC.161] Testing Position 161...
+  Expected (SAN): ['Qxd8+']
+  Engine played:  h4h6
+  Elapsed time:   783.5 ms
+  Result: MISSED  (0.0)
+
+[WAC.162] Testing Position 162...
+  Expected (SAN): ['Bd5']
+  Engine played:  c4d5
+  Elapsed time:   1000.7 ms
+  Result: MATCH   (+1.0)
+
+[WAC.163] Testing Position 163...
+  Expected (SAN): ['Qg2+']
+  Engine played:  c6d5
+  Elapsed time:   1000.7 ms
+  Result: MISSED  (0.0)
+
+[WAC.164] Testing Position 164...
+  Expected (SAN): ['Rxc4+']
+  Engine played:  c2c4
+  Elapsed time:   999.8 ms
+  Result: MATCH   (+1.0)
+
+[WAC.165] Testing Position 165...
+  Expected (SAN): ['Re2']
+  Engine played:  e3e2
+  Elapsed time:   1000.7 ms
+  Result: MATCH   (+1.0)
+
+[WAC.166] Testing Position 166...
+  Expected (SAN): ['d4']
+  Engine played:  d5d4
+  Elapsed time:   1000.1 ms
+  Result: MATCH   (+1.0)
+
+[WAC.167] Testing Position 167...
+  Expected (SAN): ['Rxg2+']
+  Engine played:  f2f1
+  Elapsed time:   1000.7 ms
+  Result: MISSED  (0.0)
+
+[WAC.168] Testing Position 168...
+  Expected (SAN): ['Qd2+']
+  Engine played:  d7d2
+  Elapsed time:   1000.9 ms
+  Result: MATCH   (+1.0)
+
+[WAC.169] Testing Position 169...
+  Expected (SAN): ['Bh6']
+  Engine played:  g7h6
+  Elapsed time:   1000.8 ms
+  Result: MATCH   (+1.0)
+
+[WAC.170] Testing Position 170...
+  Expected (SAN): ['Qxc4']
+  Engine played:  a2c4
+  Elapsed time:   1000.5 ms
+  Result: MATCH   (+1.0)
+
+[WAC.171] Testing Position 171...
+  Expected (SAN): ['Bh6+']
+  Engine played:  e3h6
+  Elapsed time:   1000.9 ms
+  Result: MATCH   (+1.0)
+
+[WAC.172] Testing Position 172...
+  Expected (SAN): ['Qe1+']
+  Engine played:  c4c3
+  Elapsed time:   0.7 ms
+  Result: MISSED  (0.0)
+
+[WAC.173] Testing Position 173...
+  Expected (SAN): ['Qh6+']
+  Engine played:  e3h6
+  Elapsed time:   147.2 ms
+  Result: MATCH   (+1.0)
+
+[WAC.174] Testing Position 174...
+  Expected (SAN): ['Nxg2']
+  Engine played:  f4g2
+  Elapsed time:   1000.7 ms
+  Result: MATCH   (+1.0)
+
+[WAC.175] Testing Position 175...
+  Expected (SAN): ['Nh5']
+  Engine played:  f4h5
+  Elapsed time:   1000.1 ms
+  Result: MATCH   (+1.0)
+
+[WAC.176] Testing Position 176...
+  Expected (SAN): ['Rxh2+']
+  Engine played:  d4e5
+  Elapsed time:   1001.0 ms
+  Result: MISSED  (0.0)
+
+[WAC.177] Testing Position 177...
+  Expected (SAN): ['Qa3+']
+  Engine played:  e7a3
+  Elapsed time:   7.2 ms
+  Result: MATCH   (+1.0)
+
+[WAC.178] Testing Position 178...
+  Expected (SAN): ['Nxe6']
+  Engine played:  f4e6
+  Elapsed time:   1000.2 ms
+  Result: MATCH   (+1.0)
+
+[WAC.179] Testing Position 179...
+  Expected (SAN): ['Qg1+']
+  Engine played:  f2g1
+  Elapsed time:   71.9 ms
+  Result: MATCH   (+1.0)
+
+[WAC.180] Testing Position 180...
+  Expected (SAN): ['Nxd5']
+  Engine played:  b4b3
+  Elapsed time:   1000.2 ms
+  Result: MISSED  (0.0)
+
+[WAC.181] Testing Position 181...
+  Expected (SAN): ['Ng4']
+  Engine played:  f6g4
+  Elapsed time:   1000.0 ms
+  Result: MATCH   (+1.0)
+
+[WAC.182] Testing Position 182...
+  Expected (SAN): ['Qh5']
+  Engine played:  d1h5
+  Elapsed time:   1000.7 ms
+  Result: MATCH   (+1.0)
+
+[WAC.183] Testing Position 183...
+  Expected (SAN): ['Bf6']
+  Engine played:  g5f6
+  Elapsed time:   1000.3 ms
+  Result: MATCH   (+1.0)
+
+[WAC.184] Testing Position 184...
+  Expected (SAN): ['Qe7+']
+  Engine played:  f6e7
+  Elapsed time:   3.8 ms
+  Result: MATCH   (+1.0)
+
+[WAC.185] Testing Position 185...
+  Expected (SAN): ['Qxh7+']
+  Engine played:  h5g4
+  Elapsed time:   1000.9 ms
+  Result: MISSED  (0.0)
+
+[WAC.186] Testing Position 186...
+  Expected (SAN): ['Bf8+']
+  Engine played:  h6f8
+  Elapsed time:   45.1 ms
+  Result: MATCH   (+1.0)
+
+[WAC.187] Testing Position 187...
+  Expected (SAN): ['Nh3+']
+  Engine played:  f4h3
+  Elapsed time:   1000.3 ms
+  Result: MATCH   (+1.0)
+
+[WAC.188] Testing Position 188...
+  Expected (SAN): ['Qg7+']
+  Engine played:  f6g7
+  Elapsed time:   3.6 ms
+  Result: MATCH   (+1.0)
+
+[WAC.189] Testing Position 189...
+  Expected (SAN): ['Re8+']
+  Engine played:  a2a4
+  Elapsed time:   1000.0 ms
+  Result: MISSED  (0.0)
+
+[WAC.190] Testing Position 190...
+  Expected (SAN): ['Bh3']
+  Engine played:  d1f2
+  Elapsed time:   1000.8 ms
+  Result: MISSED  (0.0)
+
+[WAC.191] Testing Position 191...
+  Expected (SAN): ['Qc4']
+  Engine played:  e2c4
+  Elapsed time:   9.3 ms
+  Result: MATCH   (+1.0)
+
+[WAC.192] Testing Position 192...
+  Expected (SAN): ['Nd3+']
+  Engine played:  b4d3
+  Elapsed time:   1000.5 ms
+  Result: MATCH   (+1.0)
+
+[WAC.193] Testing Position 193...
+  Expected (SAN): ['Qxe3']
+  Engine played:  c2a2
+  Elapsed time:   1001.0 ms
+  Result: MISSED  (0.0)
+
+[WAC.194] Testing Position 194...
+  Expected (SAN): ['Nh6+']
+  Engine played:  g3h3
+  Elapsed time:   1000.4 ms
+  Result: MISSED  (0.0)
+
+[WAC.195] Testing Position 195...
+  Expected (SAN): ['g3']
+  Engine played:  d1b1
+  Elapsed time:   1000.0 ms
+  Result: MISSED  (0.0)
+
+[WAC.196] Testing Position 196...
+  Expected (SAN): ['Nb4']
+  Engine played:  c6b4
+  Elapsed time:   1001.0 ms
+  Result: MATCH   (+1.0)
+
+[WAC.197] Testing Position 197...
+  Expected (SAN): ['Qf1+']
+  Engine played:  f2f1
+  Elapsed time:   3.6 ms
+  Result: MATCH   (+1.0)
+
+[WAC.198] Testing Position 198...
+  Expected (SAN): ['Rd3']
+  Engine played:  d8d3
+  Elapsed time:   1000.9 ms
+  Result: MATCH   (+1.0)
+
+[WAC.199] Testing Position 199...
+  Expected (SAN): ['Bxc6', 'Rcd1', 'Rfd1']
+  Engine played:  b5c6
+  Elapsed time:   1000.5 ms
+  Result: MATCH   (+1.0)
+
+[WAC.200] Testing Position 200...
+  Expected (SAN): ['Bxf6']
+  Engine played:  b2f6
+  Elapsed time:   1000.2 ms
+  Result: MATCH   (+1.0)
+
+[WAC.201] Testing Position 201...
+  Expected (SAN): ['Ra7']
+  Engine played:  a1a7
+  Elapsed time:   1001.2 ms
+  Result: MATCH   (+1.0)
+
+[WAC.202] Testing Position 202...
+  Expected (SAN): ['Rxa2']
+  Engine played:  c2a2
+  Elapsed time:   999.9 ms
+  Result: MATCH   (+1.0)
+
+[WAC.203] Testing Position 203...
+  Expected (SAN): ['Qh6']
+  Engine played:  g5h6
+  Elapsed time:   21.3 ms
+  Result: MATCH   (+1.0)
+
+[WAC.204] Testing Position 204...
+  Expected (SAN): ['Rxe5']
+  Engine played:  h2h5
+  Elapsed time:   1000.8 ms
+  Result: MISSED  (0.0)
+
+[WAC.205] Testing Position 205...
+  Expected (SAN): ['Qxg5']
+  Engine played:  d2g5
+  Elapsed time:   1000.8 ms
+  Result: MATCH   (+1.0)
+
+[WAC.206] Testing Position 206...
+  Expected (SAN): ['Rc6']
+  Engine played:  d6c6
+  Elapsed time:   1000.4 ms
+  Result: MATCH   (+1.0)
+
+[WAC.207] Testing Position 207...
+  Expected (SAN): ['Qxg7+']
+  Engine played:  f2f4
+  Elapsed time:   1000.9 ms
+  Result: MISSED  (0.0)
+
+[WAC.208] Testing Position 208...
+  Expected (SAN): ['Bf7+']
+  Engine played:  g1g2
+  Elapsed time:   1000.8 ms
+  Result: MISSED  (0.0)
+
+[WAC.209] Testing Position 209...
+  Expected (SAN): ['Rxe5+']
+  Engine played:  a4b5
+  Elapsed time:   1000.5 ms
+  Result: MISSED  (0.0)
+
+[WAC.210] Testing Position 210...
+  Expected (SAN): ['Rh1']
+  Engine played:  e2d3
+  Elapsed time:   1000.1 ms
+  Result: MISSED  (0.0)
+
+[WAC.211] Testing Position 211...
+  Expected (SAN): ['Qxf7+']
+  Engine played:  h5h7
+  Elapsed time:   1000.9 ms
+  Result: MISSED  (0.0)
+
+[WAC.212] Testing Position 212...
+  Expected (SAN): ['Qxg7+']
+  Engine played:  h8h7
+  Elapsed time:   1001.2 ms
+  Result: MISSED  (0.0)
+
+[WAC.213] Testing Position 213...
+  Expected (SAN): ['Rxh7+']
+  Engine played:  e2d1
+  Elapsed time:   1000.6 ms
+  Result: MISSED  (0.0)
+
+[WAC.214] Testing Position 214...
+  Expected (SAN): ['Ng5']
+  Engine played:  e1d1
+  Elapsed time:   1000.6 ms
+  Result: MISSED  (0.0)
+
+[WAC.215] Testing Position 215...
+  Expected (SAN): ['Qh7+']
+  Engine played:  d3h7
+  Elapsed time:   1000.3 ms
+  Result: MATCH   (+1.0)
+
+[WAC.216] Testing Position 216...
+  Expected (SAN): ['Nxf7', 'a4']
+  Engine played:  f3g5
+  Elapsed time:   1000.3 ms
+  Result: MISSED  (0.0)
+
+[WAC.217] Testing Position 217...
+  Expected (SAN): ['Qd7+']
+  Engine played:  e4g3
+  Elapsed time:   1000.9 ms
+  Result: MISSED  (0.0)
+
+[WAC.218] Testing Position 218...
+  Expected (SAN): ['Bh6']
+  Engine played:  g5h6
+  Elapsed time:   1000.4 ms
+  Result: MATCH   (+1.0)
+
+[WAC.219] Testing Position 219...
+  Expected (SAN): ['Qf1+']
+  Engine played:  f7f1
+  Elapsed time:   1.7 ms
+  Result: MATCH   (+1.0)
+
+[WAC.220] Testing Position 220...
+  Expected (SAN): ['Qxf1+']
+  Engine played:  e2f1
+  Elapsed time:   999.8 ms
+  Result: MATCH   (+1.0)
+
+[WAC.221] Testing Position 221...
+  Expected (SAN): ['Rd8+']
+  Engine played:  g3h5
+  Elapsed time:   999.9 ms
+  Result: MISSED  (0.0)
+
+[WAC.222] Testing Position 222...
+  Expected (SAN): ['Bf6']
+  Engine played:  b2a3
+  Elapsed time:   1000.1 ms
+  Result: MISSED  (0.0)
+
+[WAC.223] Testing Position 223...
+  Expected (SAN): ['Nxe4']
+  Engine played:  f4e5
+  Elapsed time:   1000.7 ms
+  Result: MISSED  (0.0)
+
+[WAC.224] Testing Position 224...
+  Expected (SAN): ['Rh6', 'e4']
+  Engine played:  d6h6
+  Elapsed time:   1000.6 ms
+  Result: MATCH   (+1.0)
+
+[WAC.225] Testing Position 225...
+  Expected (SAN): ['Qh4+']
+  Engine played:  e7h4
+  Elapsed time:   83.1 ms
+  Result: MATCH   (+1.0)
+
+[WAC.226] Testing Position 226...
+  Expected (SAN): ['Nf7']
+  Engine played:  g5e7
+  Elapsed time:   1000.6 ms
+  Result: MISSED  (0.0)
+
+[WAC.227] Testing Position 227...
+  Expected (SAN): ['d5']
+  Engine played:  d6d5
+  Elapsed time:   999.9 ms
+  Result: MATCH   (+1.0)
+
+[WAC.228] Testing Position 228...
+  Expected (SAN): ['Bxe4']
+  Engine played:  d3e4
+  Elapsed time:   1000.6 ms
+  Result: MATCH   (+1.0)
+
+[WAC.229] Testing Position 229...
+  Expected (SAN): ['Rxh4', 'b4']
+  Engine played:  h5h7
+  Elapsed time:   999.8 ms
+  Result: MISSED  (0.0)
+
+[WAC.230] Testing Position 230...
+  Expected (SAN): ['Rb4']
+  Engine played:  a5a4
+  Elapsed time:   1000.7 ms
+  Result: MISSED  (0.0)
+
+[WAC.231] Testing Position 231...
+  Expected (SAN): ['Bg5']
+  Engine played:  d1d7
+  Elapsed time:   999.9 ms
+  Result: MISSED  (0.0)
+
+[WAC.232] Testing Position 232...
+  Expected (SAN): ['Qb5', 'Rxe8']
+  Engine played:  a6b5
+  Elapsed time:   1000.0 ms
+  Result: MATCH   (+1.0)
+
+[WAC.233] Testing Position 233...
+  Expected (SAN): ['Nb3']
+  Engine played:  d4b3
+  Elapsed time:   1000.6 ms
+  Result: MATCH   (+1.0)
+
+[WAC.234] Testing Position 234...
+  Expected (SAN): ['Rb3']
+  Engine played:  h3b3
+  Elapsed time:   1001.1 ms
+  Result: MATCH   (+1.0)
+
+[WAC.235] Testing Position 235...
+  Expected (SAN): ['Qe4', 'Qxf7+', 'Rxf7+']
+  Engine played:  e6e4
+  Elapsed time:   1000.6 ms
+  Result: MATCH   (+1.0)
+
+[WAC.236] Testing Position 236...
+  Expected (SAN): ['Rc1']
+  Engine played:  c3c1
+  Elapsed time:   1000.5 ms
+  Result: MATCH   (+1.0)
+
+[WAC.237] Testing Position 237...
+  Expected (SAN): ['Rc1+']
+  Engine played:  f7e8
+  Elapsed time:   999.9 ms
+  Result: MISSED  (0.0)
+
+[WAC.238] Testing Position 238...
+  Expected (SAN): ['Bxb7']
+  Engine played:  g3f4
+  Elapsed time:   999.7 ms
+  Result: MISSED  (0.0)
+
+[WAC.239] Testing Position 239...
+  Expected (SAN): ['Qf1+']
+  Engine played:  f2f1
+  Elapsed time:   1000.0 ms
+  Result: MATCH   (+1.0)
+
+[WAC.240] Testing Position 240...
+  Expected (SAN): ['Qxc6']
+  Engine played:  g5f3
+  Elapsed time:   1000.0 ms
+  Result: MISSED  (0.0)
+
+[WAC.241] Testing Position 241...
+  Expected (SAN): ['Qxh7+']
+  Engine played:  f5f6
+  Elapsed time:   1000.9 ms
+  Result: MISSED  (0.0)
+
+[WAC.242] Testing Position 242...
+  Expected (SAN): ['Rxd7']
+  Engine played:  d1d7
+  Elapsed time:   1000.8 ms
+  Result: MATCH   (+1.0)
+
+[WAC.243] Testing Position 243...
+  Expected (SAN): ['Qe2']
+  Engine played:  d6c4
+  Elapsed time:   1000.8 ms
+  Result: MISSED  (0.0)
+
+[WAC.244] Testing Position 244...
+  Expected (SAN): ['Qxc5+']
+  Engine played:  b1a1
+  Elapsed time:   0.6 ms
+  Result: MISSED  (0.0)
+
+[WAC.245] Testing Position 245...
+  Expected (SAN): ['Qxg6+']
+  Engine played:  c3b5
+  Elapsed time:   1000.2 ms
+  Result: MISSED  (0.0)
+
+[WAC.246] Testing Position 246...
+  Expected (SAN): ['Qh5+']
+  Engine played:  g4h5
+  Elapsed time:   3.6 ms
+  Result: MATCH   (+1.0)
+
+[WAC.247] Testing Position 247...
+  Expected (SAN): ['Rxb5']
+  Engine played:  d6c5
+  Elapsed time:   999.7 ms
+  Result: MISSED  (0.0)
+
+[WAC.248] Testing Position 248...
+  Expected (SAN): ['Qc5+']
+  Engine played:  d6d5
+  Elapsed time:   1000.8 ms
+  Result: MISSED  (0.0)
+
+[WAC.249] Testing Position 249...
+  Expected (SAN): ['c5', 'd5']
+  Engine played:  d4d5
+  Elapsed time:   1001.3 ms
+  Result: MATCH   (+1.0)
+
+[WAC.250] Testing Position 250...
+  Expected (SAN): ['Re8+']
+  Engine played:  f3c6
+  Elapsed time:   1.5 ms
+  Result: MISSED  (0.0)
+
+[WAC.251] Testing Position 251...
+  Expected (SAN): ['Qe5', 'Qf4']
+  Engine played:  d4f4
+  Elapsed time:   1000.5 ms
+  Result: MATCH   (+1.0)
+
+[WAC.252] Testing Position 252...
+  Expected (SAN): ['Bg4', 'Re2']
+  Engine played:  f6d5
+  Elapsed time:   1000.8 ms
+  Result: MISSED  (0.0)
+
+[WAC.253] Testing Position 253...
+  Expected (SAN): ['Qe8+']
+  Engine played:  e3e8
+  Elapsed time:   177.0 ms
+  Result: MATCH   (+1.0)
+
+[WAC.254] Testing Position 254...
+  Expected (SAN): ['Nxh3']
+  Engine played:  f4h3
+  Elapsed time:   1000.7 ms
+  Result: MATCH   (+1.0)
+
+[WAC.255] Testing Position 255...
+  Expected (SAN): ['Rfxg6+']
+  Engine played:  f6g6
+  Elapsed time:   1000.4 ms
+  Result: MATCH   (+1.0)
+
+[WAC.256] Testing Position 256...
+  Expected (SAN): ['Nf5']
+  Engine played:  d1g4
+  Elapsed time:   1000.5 ms
+  Result: MISSED  (0.0)
+
+[WAC.257] Testing Position 257...
+  Expected (SAN): ['Rxd4']
+  Engine played:  d1d3
+  Elapsed time:   1001.2 ms
+  Result: MISSED  (0.0)
+
+[WAC.258] Testing Position 258...
+  Expected (SAN): ['Bxg6']
+  Engine played:  f1b1
+  Elapsed time:   1000.3 ms
+  Result: MISSED  (0.0)
+
+[WAC.259] Testing Position 259...
+  Expected (SAN): ['Qh5']
+  Engine played:  d1h5
+  Elapsed time:   1000.2 ms
+  Result: MATCH   (+1.0)
+
+[WAC.260] Testing Position 260...
+  Expected (SAN): ['Qe6+']
+  Engine played:  c7a6
+  Elapsed time:   1000.6 ms
+  Result: MISSED  (0.0)
+
+[WAC.261] Testing Position 261...
+  Expected (SAN): ['Nd4']
+  Engine played:  g3g2
+  Elapsed time:   1000.3 ms
+  Result: MISSED  (0.0)
+
+[WAC.262] Testing Position 262...
+  Expected (SAN): ['Rh6']
+  Engine played:  h3c8
+  Elapsed time:   1000.1 ms
+  Result: MISSED  (0.0)
+
+[WAC.263] Testing Position 263...
+  Expected (SAN): ['Qg8+']
+  Engine played:  f7g8
+  Elapsed time:   231.3 ms
+  Result: MATCH   (+1.0)
+
+[WAC.264] Testing Position 264...
+  Expected (SAN): ['Qe5', 'Rab8']
+  Engine played:  d8d4
+  Elapsed time:   1000.4 ms
+  Result: MISSED  (0.0)
+
+[WAC.265] Testing Position 265...
+  Expected (SAN): ['exf6']
+  Engine played:  c2e4
+  Elapsed time:   1000.6 ms
+  Result: MISSED  (0.0)
+
+[WAC.266] Testing Position 266...
+  Expected (SAN): ['Rxh2+']
+  Engine played:  f2g3
+  Elapsed time:   1000.1 ms
+  Result: MISSED  (0.0)
+
+[WAC.267] Testing Position 267...
+  Expected (SAN): ['Nc7+']
+  Engine played:  d5c7
+  Elapsed time:   1000.4 ms
+  Result: MATCH   (+1.0)
+
+[WAC.268] Testing Position 268...
+  Expected (SAN): ['Re8+']
+  Engine played:  e2e8
+  Elapsed time:   999.9 ms
+  Result: MATCH   (+1.0)
+
+[WAC.269] Testing Position 269...
+  Expected (SAN): ['axb4']
+  Engine played:  f4d2
+  Elapsed time:   1000.2 ms
+  Result: MISSED  (0.0)
+
+[WAC.270] Testing Position 270...
+  Expected (SAN): ['Qg4']
+  Engine played:  d4g4
+  Elapsed time:   1000.3 ms
+  Result: MATCH   (+1.0)
+
+[WAC.271] Testing Position 271...
+  Expected (SAN): ['Rd6']
+  Engine played:  e6d6
+  Elapsed time:   999.8 ms
+  Result: MATCH   (+1.0)
+
+[WAC.272] Testing Position 272...
+  Expected (SAN): ['Bxc5']
+  Engine played:  g1f1
+  Elapsed time:   1001.2 ms
+  Result: MISSED  (0.0)
+
+[WAC.273] Testing Position 273...
+  Expected (SAN): ['Ng3+', 'g3']
+  Engine played:  e4g3
+  Elapsed time:   1000.8 ms
+  Result: MATCH   (+1.0)
+
+[WAC.274] Testing Position 274...
+  Expected (SAN): ['Rb6', 'Rg5+']
+  Engine played:  g6g5
+  Elapsed time:   1000.9 ms
+  Result: MATCH   (+1.0)
+
+[WAC.275] Testing Position 275...
+  Expected (SAN): ['Nc5', 'Nxg2', 'b5']
+  Engine played:  b7b5
+  Elapsed time:   1000.1 ms
+  Result: MATCH   (+1.0)
+
+[WAC.276] Testing Position 276...
+  Expected (SAN): ['Qd5+']
+  Engine played:  d1c1
+  Elapsed time:   0.5 ms
+  Result: MISSED  (0.0)
+
+[WAC.277] Testing Position 277...
+  Expected (SAN): ['Rg3', 'Rxg2']
+  Engine played:  g8g2
+  Elapsed time:   1001.0 ms
+  Result: MATCH   (+1.0)
+
+[WAC.278] Testing Position 278...
+  Expected (SAN): ['Bf7+']
+  Engine played:  d4e3
+  Elapsed time:   1000.1 ms
+  Result: MISSED  (0.0)
+
+[WAC.279] Testing Position 279...
+  Expected (SAN): ['Nxf5', 'Rc3']
+  Engine played:  e3f5
+  Elapsed time:   1000.6 ms
+  Result: MATCH   (+1.0)
+
+[WAC.280] Testing Position 280...
+  Expected (SAN): ['Bxa3']
+  Engine played:  c2e2
+  Elapsed time:   1000.0 ms
+  Result: MISSED  (0.0)
+
+[WAC.281] Testing Position 281...
+  Expected (SAN): ['Rxh7+']
+  Engine played:  e3f4
+  Elapsed time:   1.1 ms
+  Result: MISSED  (0.0)
+
+[WAC.282] Testing Position 282...
+  Expected (SAN): ['Rh8+']
+  Engine played:  h1h8
+  Elapsed time:   115.6 ms
+  Result: MATCH   (+1.0)
+
+[WAC.283] Testing Position 283...
+  Expected (SAN): ['Ng5']
+  Engine played:  h3g5
+  Elapsed time:   60.3 ms
+  Result: MATCH   (+1.0)
+
+[WAC.284] Testing Position 284...
+  Expected (SAN): ['Nf5']
+  Engine played:  d2f2
+  Elapsed time:   1000.2 ms
+  Result: MISSED  (0.0)
+
+[WAC.285] Testing Position 285...
+  Expected (SAN): ['Qxg7+']
+  Engine played:  g2g7
+  Elapsed time:   135.8 ms
+  Result: MATCH   (+1.0)
+
+[WAC.286] Testing Position 286...
+  Expected (SAN): ['Rxd5+']
+  Engine played:  d8d5
+  Elapsed time:   1000.0 ms
+  Result: MATCH   (+1.0)
+
+[WAC.287] Testing Position 287...
+  Expected (SAN): ['Qg4', 'Qh5']
+  Engine played:  d1h5
+  Elapsed time:   1000.5 ms
+  Result: MATCH   (+1.0)
+
+[WAC.288] Testing Position 288...
+  Expected (SAN): ['Nf6+']
+  Engine played:  h5f6
+  Elapsed time:   1000.9 ms
+  Result: MATCH   (+1.0)
+
+[WAC.289] Testing Position 289...
+  Expected (SAN): ['Qe5']
+  Engine played:  e6e5
+  Elapsed time:   1000.7 ms
+  Result: MATCH   (+1.0)
+
+[WAC.290] Testing Position 290...
+  Expected (SAN): ['Ne2+']
+  Engine played:  e5f3
+  Elapsed time:   999.9 ms
+  Result: MISSED  (0.0)
+
+[WAC.291] Testing Position 291...
+  Expected (SAN): ['h3']
+  Engine played:  g1h1
+  Elapsed time:   1000.7 ms
+  Result: MISSED  (0.0)
+
+[WAC.292] Testing Position 292...
+  Expected (SAN): ['d6+']
+  Engine played:  d5d6
+  Elapsed time:   1000.8 ms
+  Result: MATCH   (+1.0)
+
+[WAC.293] Testing Position 293...
+  Expected (SAN): ['Nfg5']
+  Engine played:  a1c1
+  Elapsed time:   999.9 ms
+  Result: MISSED  (0.0)
+
+[WAC.294] Testing Position 294...
+  Expected (SAN): ['Bf8', 'Nf5', 'Qf4']
+  Engine played:  g4f4
+  Elapsed time:   1000.1 ms
+  Result: MATCH   (+1.0)
+
+[WAC.295] Testing Position 295...
+  Expected (SAN): ['Rxd5+']
+  Engine played:  d1d5
+  Elapsed time:   125.2 ms
+  Result: MATCH   (+1.0)
+
+[WAC.296] Testing Position 296...
+  Expected (SAN): ['Rd4+', 'Rf8']
+  Engine played:  c6d7
+  Elapsed time:   1000.4 ms
+  Result: MISSED  (0.0)
+
+[WAC.297] Testing Position 297...
+  Expected (SAN): ['Bxg2', 'Bxh2+']
+  Engine played:  e7h4
+  Elapsed time:   1000.8 ms
+  Result: MISSED  (0.0)
+
+[WAC.298] Testing Position 298...
+  Expected (SAN): ['Qh8+']
+  Engine played:  d8h8
+  Elapsed time:   541.8 ms
+  Result: MATCH   (+1.0)
+
+[WAC.299] Testing Position 299...
+  Expected (SAN): ['Nca4']
+  Engine played:  c5a4
+  Elapsed time:   1000.6 ms
+  Result: MATCH   (+1.0)
+
+[WAC.300] Testing Position 300...
+  Expected (SAN): ['g6']
+  Engine played:  g5g6
+  Elapsed time:   1000.0 ms
+  Result: MATCH   (+1.0)
+
+================ TEST SUMMARY ================
+Total Positions: 300
+Correct Answers: 205.0
+Overall Accuracy: 68.33%
+==============================================
