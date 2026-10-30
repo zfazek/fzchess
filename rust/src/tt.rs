@@ -89,11 +89,7 @@ impl TranspositionTable {
             return 0;
         }
         let e = &self.table[(key as usize) & self.mask];
-        if e.zobrist_key == key {
-            e.best_move
-        } else {
-            0
-        }
+        if e.zobrist_key == key { e.best_move } else { 0 }
     }
 
     /// Store or update a position. Port of C++ `TranspositionTable::store`,

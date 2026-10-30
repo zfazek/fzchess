@@ -1,0 +1,6 @@
+# finds_mate_in_three_on_the_horizon()
+uci
+position fen rn5r/ppp3pp/2kbQn2/8/2N1p3/1P2B3/P1P2PPP/qN2K2R w K - 0 13
+go depth 6
+
+

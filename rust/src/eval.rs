@@ -7,7 +7,7 @@
 //! up with the golden baseline.
 
 use crate::board::Board;
-use crate::tt::{TranspositionTable, TtFlag, TT_MISS};
+use crate::tt::{TT_MISS, TranspositionTable, TtFlag};
 use crate::types::*;
 
 // Evaluation constants (match C++ `Eval`).

@@ -15,10 +15,10 @@
 use crate::board::Board;
 use crate::eval::{DRAW, LOST, NOT_END, WON};
 use crate::tt::{TranspositionTable, TtFlag};
-use crate::types::{Move, MAX_LEGAL_MOVES};
+use crate::types::{MAX_LEGAL_MOVES, Move};
 use crate::util::get_ms;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 const MAX_PLY: usize = 128;
 /// Initial `value` floor in alfabeta (matches C++ -22767).
@@ -76,6 +76,8 @@ pub struct Search<'a> {
 
     pub best_move: i32,
     pub mate_score: i32,
+    /// Number of root moves searched in the latest completed/active root evaluation (dpt == 1).
+    pub root_moves_searched: usize,
     /// Toggle MVV-LVA ordering (C++ `sort_alfarray`, default on).
     pub sort_alfarray: bool,
 
@@ -124,6 +126,7 @@ impl<'a> Search<'a> {
             nof_legal_root_moves: 0,
             best_move: 0,
             mate_score: 0,
+            root_moves_searched: 0,
             sort_alfarray: true,
             sm: 0,
             stop,
@@ -240,6 +243,7 @@ impl<'a> Search<'a> {
 
         // Move ordering.
         if dpt == 1 {
+            self.root_moves_searched = 0;
             self.nof_legal_root_moves = nbr_legal;
             self.calculate_evarray();
             #[allow(clippy::needless_range_loop)] // parallel index copy
@@ -309,6 +313,9 @@ impl<'a> Search<'a> {
         // `i` is used for alfarray[i], root_moves[i], and currmovenumber i+1.
         #[allow(clippy::needless_range_loop)]
         for i in 0..nbr_legal {
+            if dpt == 1 {
+                self.root_moves_searched += 1;
+            }
             // Poll the stop flag / time limit periodically. Checked BEFORE
             // making the move so that if we abort, no move is left pending at
             // this level and make/unmake stay balanced as the recursion unwinds.
@@ -431,7 +438,9 @@ impl<'a> Search<'a> {
                     let line_len = self.best_line[dpt as usize].length;
                     let mut pv = String::new();
                     for b in 1..=line_len {
-                        pv.push_str(&crate::util::move2str(self.best_line[dpt as usize].moves[b]));
+                        pv.push_str(&crate::util::move2str(
+                            self.best_line[dpt as usize].moves[b],
+                        ));
                         pv.push(' ');
                     }
                     if u.abs() > 20000 {
@@ -451,6 +460,9 @@ impl<'a> Search<'a> {
                             self.nodes,
                             pv
                         );
+                        // Once a mate is found at the root, stop checking other root
+                        // moves to avoid wasting time.
+                        break;
                     } else {
                         println!(
                             "info multipv 1 depth {} seldepth {} score cp {} nodes {} pv {}",
@@ -509,8 +521,14 @@ impl<'a> Search<'a> {
             } else {
                 TtFlag::Alpha
             };
-            self.tt
-                .store(key, dpt as i16, value as i16, node_best_move, flag, self.search_age);
+            self.tt.store(
+                key,
+                dpt as i16,
+                value as i16,
+                node_best_move,
+                flag,
+                self.search_age,
+            );
         }
         value
     }
@@ -808,8 +826,17 @@ mod tests {
         b.setboard("6k1/5ppp/8/8/8/8/8/R6K w - - 0 1");
         let mut s = Search::new(&mut b);
         let mv = s.search_fixed_depth(3);
-        assert_eq!(move2str(mv), "a1a8", "expected mate-in-1 Ra8, got {}", move2str(mv));
-        assert!(s.mate_score > 20000, "mate not scored as mate: {}", s.mate_score);
+        assert_eq!(
+            move2str(mv),
+            "a1a8",
+            "expected mate-in-1 Ra8, got {}",
+            move2str(mv)
+        );
+        assert!(
+            s.mate_score > 20000,
+            "mate not scored as mate: {}",
+            s.mate_score
+        );
     }
 
     #[test]
@@ -821,7 +848,12 @@ mod tests {
         let mut s = Search::new(&mut b);
         s.set_tt_enabled(false);
         let mv = s.search_fixed_depth(3);
-        assert_eq!(move2str(mv), "a1a8", "TT-off: expected Ra8, got {}", move2str(mv));
+        assert_eq!(
+            move2str(mv),
+            "a1a8",
+            "TT-off: expected Ra8, got {}",
+            move2str(mv)
+        );
         assert_eq!(s.tt_nodes, 0, "TT-off should record zero TT hits");
     }
 
@@ -835,8 +867,29 @@ mod tests {
         let mut b = Board::new();
         b.setboard("rn5r/ppp3pp/2kbQn2/8/2N1p3/1P2B3/P1P2PPP/qN2K2R w K - 0 13");
         let mut s = Search::new(&mut b);
-        let mv = s.search_fixed_depth(5);
-        assert_eq!(move2str(mv), "c4a5", "expected mating move Nca5, got {}", move2str(mv));
-        assert!(s.mate_score > 20000, "mate not scored as mate: {}", s.mate_score);
+        let mv = s.search_fixed_depth(6);
+        assert_eq!(
+            move2str(mv),
+            "c4a5",
+            "expected mating move Nca5, got {}",
+            move2str(mv)
+        );
+        assert!(
+            s.mate_score > 20000,
+            "mate not scored as mate: {}",
+            s.mate_score
+        );
+        assert_eq!(
+            s.depth, 5,
+            "expected mate to be found by depth 5, but depth was {}",
+            s.depth
+        );
+        // Verify that once mate was found at the root, the search returned immediately
+        // (searching only 1 root move instead of all legal root moves).
+        assert_eq!(
+            s.root_moves_searched, 1,
+            "expected search to return immediately after root move 1 found mate, but searched {} root moves",
+            s.root_moves_searched
+        );
     }
 }

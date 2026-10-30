@@ -20,7 +20,11 @@ const EXPECTED: &[&[(i32, u64)]] = &[
 
 #[test]
 fn suite_matches_reference_counts() {
-    assert_eq!(SUITE.len(), EXPECTED.len(), "suite/expected length mismatch");
+    assert_eq!(
+        SUITE.len(),
+        EXPECTED.len(),
+        "suite/expected length mismatch"
+    );
     for (case, expected) in SUITE.iter().zip(EXPECTED) {
         assert_eq!(
             case.run(),

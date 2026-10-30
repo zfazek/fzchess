@@ -108,8 +108,16 @@ impl Board {
     pub fn list_legal_moves(&mut self) {
         self.legal_pointer = -1;
         let ptm = self.player_to_move;
-        let my_color = if ptm == WHITE { WHITE_COLOR } else { BLACK_COLOR };
-        let opp_color = if ptm == WHITE { BLACK_COLOR } else { WHITE_COLOR };
+        let my_color = if ptm == WHITE {
+            WHITE_COLOR
+        } else {
+            BLACK_COLOR
+        };
+        let opp_color = if ptm == WHITE {
+            BLACK_COLOR
+        } else {
+            WHITE_COLOR
+        };
         let en_pass = self.movelist[self.move_number].en_passant;
 
         for sq in 21..=98i32 {
@@ -172,7 +180,8 @@ impl Board {
                         }
                         for &d in &[9i32, 11] {
                             let cap = sq - d;
-                            if self.board[cap as usize] > 0 && self.board[cap as usize] < BLACK_COLOR
+                            if self.board[cap as usize] > 0
+                                && self.board[cap as usize] < BLACK_COLOR
                             {
                                 if sq / 10 == 3 {
                                     self.try_move(sq, cap, 0x0200);

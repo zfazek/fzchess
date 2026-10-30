@@ -123,7 +123,6 @@ impl Zobrist {
     }
 }
 
-
 impl Default for Board {
     fn default() -> Self {
         Self::new()
@@ -243,11 +242,7 @@ impl Board {
             return 0;
         }
         let v = PIECE_VALUE[(field & 127) as usize];
-        if (field & 128) != 0 {
-            -v
-        } else {
-            v
-        }
+        if (field & 128) != 0 { -v } else { v }
     }
 
     /// Full White-perspective material sum over the board. Used to seed the
@@ -433,7 +428,11 @@ impl Board {
                     let pt = (piece & 0x7f) as usize;
                     let is_black = (piece & 0x80) != 0;
                     if (1..=6).contains(&pt) {
-                        fen.push(if is_black { BLACK_CHARS[pt] } else { WHITE_CHARS[pt] });
+                        fen.push(if is_black {
+                            BLACK_CHARS[pt]
+                        } else {
+                            WHITE_CHARS[pt]
+                        });
                     }
                 }
             }
@@ -614,10 +613,18 @@ mod tests {
         // Incremental vs full recompute at this node.
         let inc_key = b.movelist[b.move_number].zobrist_key;
         let full_key = b.compute_zobrist_key(b.move_number);
-        assert_eq!(inc_key, full_key, "zobrist key mismatch at mn={}", b.move_number);
+        assert_eq!(
+            inc_key, full_key,
+            "zobrist key mismatch at mn={}",
+            b.move_number
+        );
         let inc_mat = b.movelist[b.move_number].material_wp;
         let full_mat = b.recompute_material();
-        assert_eq!(inc_mat, full_mat, "material mismatch at mn={}", b.move_number);
+        assert_eq!(
+            inc_mat, full_mat,
+            "material mismatch at mn={}",
+            b.move_number
+        );
 
         if depth == 0 {
             return;

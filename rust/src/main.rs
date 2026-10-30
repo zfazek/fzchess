@@ -41,7 +41,11 @@ fn run_perft_bench(fen: &str, depth: i32) {
     let start = Instant::now();
     let nodes = case.count(depth);
     let secs = start.elapsed().as_secs_f64();
-    let nps = if secs > 0.0 { (nodes as f64 / secs) as u64 } else { 0 };
+    let nps = if secs > 0.0 {
+        (nodes as f64 / secs) as u64
+    } else {
+        0
+    };
     println!(
         "engine=rust depth={} nodes={} time_ms={:.1} nps={}",
         depth,
@@ -59,10 +63,7 @@ fn main() {
         Some("perft-bench") => {
             // Usage: fzchess perft-bench <depth> [fen...]
             // No FEN (or "startpos") benches the starting position.
-            let depth: i32 = args
-                .get(2)
-                .and_then(|s| s.parse().ok())
-                .unwrap_or(5);
+            let depth: i32 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(5);
             let fen = if args.len() > 3 {
                 args[3..].join(" ")
             } else {
@@ -92,4 +93,3 @@ fn main() {
         ),
     }
 }
-

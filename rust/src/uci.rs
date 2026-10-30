@@ -15,9 +15,9 @@ use crate::board::Board;
 use crate::search::Search;
 use crate::util::str2move;
 use std::io::{self, BufRead, Write};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
-use std::sync::Arc;
 use std::thread;
 
 /// Parsed `go` parameters relevant to this engine.
@@ -337,7 +337,10 @@ mod tests {
         let b = board_from_position_line("position startpos").unwrap();
         assert_eq!(b.player_to_move, crate::types::WHITE);
         // Starting position FEN.
-        assert!(b.get_fen().starts_with("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w"));
+        assert!(
+            b.get_fen()
+                .starts_with("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w")
+        );
     }
 
     #[test]

@@ -22,11 +22,17 @@ pub struct PerftCase {
 
 impl PerftCase {
     pub const fn startpos(max_depth: i32) -> Self {
-        PerftCase { fen: None, max_depth }
+        PerftCase {
+            fen: None,
+            max_depth,
+        }
     }
 
     pub const fn from_fen(fen: &'static str, max_depth: i32) -> Self {
-        PerftCase { fen: Some(fen), max_depth }
+        PerftCase {
+            fen: Some(fen),
+            max_depth,
+        }
     }
 
     /// Build a `Board` positioned at this case's starting position.
