@@ -12,6 +12,7 @@
 //! while thinking; a shared `AtomicBool` is the stop signal.
 
 use crate::board::Board;
+use crate::book::{self, PolyglotBook};
 use crate::search::Search;
 use crate::util::str2move;
 use std::io::{self, BufRead, Write};
@@ -39,12 +40,33 @@ struct Searching {
     handle: thread::JoinHandle<()>,
 }
 
+/// Default Polyglot book path, relative to the crate/run directory. Users may
+/// override it via `setoption name BookFile value <path>`. The engine searches
+/// normally when the file is absent, so this is purely a convenience default.
+const DEFAULT_BOOK_FILE: &str = "performance.bin";
+
 /// Run the UCI loop reading commands from stdin until `quit` (or EOF).
 pub fn run() {
     let stdin = io::stdin();
     let mut board = Board::new();
     let mut searching: Option<Searching> = None;
     let mut use_tt = true; // transposition table on by default; toggled via setoption UseTT
+
+    // --- Opening book state ---
+    // `own_book` gates book use; `book_best` selects highest-weight vs weighted
+    // random; `book_file` is the path to load from; `book` holds the loaded
+    // book (None until successfully loaded).
+    //
+    // The book is ON by default so the engine plays book moves out of the box
+    // without any `setoption`. It is still fully opt-out via
+    // `setoption name OwnBook value false`, and if the book file cannot be
+    // found the engine simply searches (load failure is reported as an
+    // `info string`). The actual load is deferred to the `uci` handshake so we
+    // never print output before the GUI sends `uci` (UCI spec).
+    let mut own_book = true;
+    let mut book_best = false;
+    let mut book_file = DEFAULT_BOOK_FILE.to_string();
+    let mut book: Option<PolyglotBook> = None;
 
     for line in stdin.lock().lines() {
         let line = match line {
@@ -76,13 +98,46 @@ pub fn run() {
                 println!("id author Zoltan FAZEKAS");
                 // Custom option: toggle the transposition table (default on).
                 println!("option name UseTT type check default true");
+                // Opening book options.
+                println!("option name OwnBook type check default true");
+                println!("option name BookFile type string default {DEFAULT_BOOK_FILE}");
+                println!("option name BookBestMove type check default false");
                 println!("uciok");
                 flush();
+                // Eagerly load the default book now (after the handshake, so
+                // no output precedes `uciok`). Only when the book is enabled
+                // and not already loaded.
+                if own_book && book.is_none() {
+                    book = try_load_book(&book_file);
+                }
             }
             "setoption" => {
-                // setoption name <id> [value <x>]. Only `UseTT` is recognised.
-                if let Some(val) = parse_setoption(tokens, "UseTT") {
-                    use_tt = val.eq_ignore_ascii_case("true");
+                // setoption name <id> [value <x>]. Recognised ids: UseTT,
+                // OwnBook, BookFile, BookBestMove. Unknown ids are ignored.
+                if let Some((name, value)) = parse_setoption(tokens) {
+                    match name.as_str() {
+                        n if n.eq_ignore_ascii_case("UseTT") => {
+                            use_tt = value.eq_ignore_ascii_case("true");
+                        }
+                        n if n.eq_ignore_ascii_case("OwnBook") => {
+                            own_book = value.eq_ignore_ascii_case("true");
+                            // Lazily load the current book file when enabling
+                            // the book and nothing is loaded yet.
+                            if own_book && book.is_none() {
+                                book = try_load_book(&book_file);
+                            }
+                        }
+                        n if n.eq_ignore_ascii_case("BookBestMove") => {
+                            book_best = value.eq_ignore_ascii_case("true");
+                        }
+                        n if n.eq_ignore_ascii_case("BookFile") => {
+                            book_file = value;
+                            // Attempt to (re)load immediately so errors surface
+                            // now; failure leaves the book unset.
+                            book = try_load_book(&book_file);
+                        }
+                        _ => {} // unknown option id: ignore
+                    }
                 }
             }
             "isready" => {
@@ -104,8 +159,26 @@ pub fn run() {
             }
             "go" => {
                 stop_search(&mut searching);
-                let params = parse_go(tokens);
-                searching = Some(start_search(&board, params, use_tt));
+                // Try the opening book first: if enabled, loaded, and the
+                // current position yields a legal book move, play it instantly
+                // and skip the search entirely. Load lazily here too, in case a
+                // front end issues `go` without the `uci` handshake.
+                if own_book && book.is_none() {
+                    book = try_load_book(&book_file);
+                }
+                let book_move = if own_book {
+                    book.as_ref()
+                        .and_then(|b| pick_book_move(&board, b, book_best))
+                } else {
+                    None
+                };
+                if let Some(mv) = book_move {
+                    println!("bestmove {mv}");
+                    flush();
+                } else {
+                    let params = parse_go(tokens);
+                    searching = Some(start_search(&board, params, use_tt));
+                }
             }
             "stop" => {
                 stop_search(&mut searching);
@@ -127,10 +200,11 @@ fn is_command(t: &str) -> bool {
 }
 
 /// Parse a `setoption name <id> [value <x>]` command (tokens AFTER the
-/// `setoption` keyword). Returns the value string if the option id matches
-/// `wanted` (case-insensitive). Returns `None` if the id differs or there is
-/// no value.
-fn parse_setoption<'a, I>(mut tokens: std::iter::Peekable<I>, wanted: &str) -> Option<String>
+/// `setoption` keyword). Returns `(name, value)` where `name` is the option id
+/// (which may contain spaces) and `value` is the remaining tokens joined by
+/// spaces (empty string if no `value` section). Returns `None` if the command
+/// does not start with `name`.
+fn parse_setoption<'a, I>(mut tokens: std::iter::Peekable<I>) -> Option<(String, String)>
 where
     I: Iterator<Item = &'a str>,
 {
@@ -148,16 +222,105 @@ where
         }
         name.push_str(t);
     }
-    if !name.eq_ignore_ascii_case(wanted) {
+    if name.is_empty() {
         return None;
     }
-    // Remaining tokens form the value.
+    // Remaining tokens form the value (may be empty for check/button options,
+    // though GUIs normally send "value true"/"value false").
     let value: Vec<&str> = tokens.collect();
-    if value.is_empty() {
-        None
-    } else {
-        Some(value.join(" "))
+    Some((name, value.join(" ")))
+}
+
+/// Attempt to load a Polyglot book from `path`. On failure, log a note to
+/// stderr (so it never pollutes the UCI stdout protocol) and return `None`.
+/// This makes a missing/invalid book a no-op: the engine just searches.
+/// Attempt to load a Polyglot book for the configured `path`.
+///
+/// Path resolution tries, in order:
+///   1. `path` as given (absolute, or relative to the current working dir);
+///   2. `path` resolved next to the running executable.
+///
+/// GUIs launch engines from an arbitrary working directory, so a bare relative
+/// default like `performance.bin` must also be looked up beside the binary —
+/// otherwise the book silently fails to load. Diagnostics are emitted as UCI
+/// `info string` lines on stdout (the protocol channel GUIs read), and the
+/// resolved path is reported on success. Returns `None` on failure (the engine
+/// then simply searches), never panicking.
+fn try_load_book(path: &str) -> Option<PolyglotBook> {
+    for candidate in book_path_candidates(path) {
+        match PolyglotBook::load(&candidate) {
+            Ok(b) => {
+                println!(
+                    "info string loaded book '{}' ({} entries)",
+                    candidate.display(),
+                    b.len()
+                );
+                flush();
+                return Some(b);
+            }
+            Err(_) => continue, // try the next candidate
+        }
     }
+    println!("info string could not load book '{path}' (searched working dir and executable dir)");
+    flush();
+    None
+}
+
+/// Candidate filesystem paths to try when loading `path`, in priority order:
+/// the path as given, then the same file name resolved beside the executable.
+/// Absolute paths yield a single candidate.
+fn book_path_candidates(path: &str) -> Vec<std::path::PathBuf> {
+    let p = std::path::PathBuf::from(path);
+    let mut out = vec![p.clone()];
+    // For a relative path, also probe the same file name beside the running
+    // executable, so a GUI launching from an arbitrary cwd still finds a book
+    // placed next to the binary.
+    let exe_dir = if p.is_relative() {
+        std::env::current_exe()
+            .ok()
+            .and_then(|exe| exe.parent().map(std::path::Path::to_path_buf))
+    } else {
+        None
+    };
+    if let Some(dir) = exe_dir {
+        out.push(dir.join(&p));
+    }
+    out
+}
+
+/// Look up a book move for the current position.
+///
+/// Computes the Polyglot key from the board's FEN, probes the book (highest
+/// weight when `best_only`, else weighted-random), decodes the move to UCI
+/// coordinate notation, and returns it only if it is legal in the current
+/// position. Returns `None` when the position is out of book or the decoded
+/// move is somehow not legal (defensive: a corrupt/foreign book never makes
+/// the engine play an illegal move).
+pub fn pick_book_move(board: &Board, book: &PolyglotBook, best_only: bool) -> Option<String> {
+    let key = book::polyglot_key(&board.get_fen());
+    let mut rng = book::Rng::from_time();
+    let raw = book.probe(key, best_only, &mut rng)?;
+    let uci = book::decode_move(raw);
+    if is_legal_uci_move(board, &uci) {
+        Some(uci)
+    } else {
+        None
+    }
+}
+
+/// Return true if `mv_str` is a legal move in `board`'s current position,
+/// without mutating the board. Shares the validation logic with
+/// `apply_uci_move`.
+fn is_legal_uci_move(board: &Board, mv_str: &str) -> bool {
+    let len = mv_str.len();
+    if (len != 4 && len != 5) || !mv_str.is_ascii() {
+        return false;
+    }
+    let encoded = str2move(mv_str);
+    let mut probe = board.clone();
+    probe.list_legal_moves();
+    let n = (probe.legal_pointer + 1) as usize;
+    probe.legal_moves[..n].contains(&encoded)
 }
 
 fn flush() {
@@ -223,22 +386,13 @@ where
 /// current position. Returns false (and leaves the board unchanged) if the move
 /// is unparseable or not legal.
 fn apply_uci_move(board: &mut Board, mv_str: &str) -> bool {
-    let len = mv_str.len();
-    if len != 4 && len != 5 {
-        return false;
-    }
-    if !mv_str.is_ascii() {
+    if !is_legal_uci_move(board, mv_str) {
         return false;
     }
     let encoded = str2move(mv_str);
-
-    // Validate against the legal move list for the side to move.
+    // Populate the legal list on the real board (is_legal_uci_move used a
+    // clone), then apply the validated move.
     board.list_legal_moves();
-    let n = (board.legal_pointer + 1) as usize;
-    let legal = &board.legal_moves[..n];
-    if !legal.contains(&encoded) {
-        return false;
-    }
     board.update_table(encoded, false);
     board.invert_player_to_move();
     true
@@ -404,5 +558,136 @@ mod tests {
         let p = parse_go("wtime 40000 movestogo 20".split_whitespace().peekable());
         // 40000 / 20 = 2000 ms for white.
         assert_eq!(time_budget_ms(&p, true), 2000);
+    }
+
+    // --- setoption parser (generalized name + value) ---
+
+    fn setopt(line: &str) -> Option<(String, String)> {
+        // line is the text AFTER "setoption".
+        parse_setoption(line.split_whitespace().peekable())
+    }
+
+    #[test]
+    fn setoption_extracts_name_and_value() {
+        assert_eq!(
+            setopt("name UseTT value false"),
+            Some(("UseTT".to_string(), "false".to_string()))
+        );
+        assert_eq!(
+            setopt("name OwnBook value true"),
+            Some(("OwnBook".to_string(), "true".to_string()))
+        );
+        assert_eq!(
+            setopt("name BookBestMove value true"),
+            Some(("BookBestMove".to_string(), "true".to_string()))
+        );
+    }
+
+    #[test]
+    fn setoption_bookfile_value_keeps_path() {
+        // BookFile values can contain path separators and spaces.
+        assert_eq!(
+            setopt("name BookFile value /tmp/my book.bin"),
+            Some(("BookFile".to_string(), "/tmp/my book.bin".to_string()))
+        );
+    }
+
+    #[test]
+    fn setoption_missing_name_is_none() {
+        assert_eq!(setopt("bogus"), None);
+        assert_eq!(setopt(""), None);
+    }
+
+    // --- pick_book_move end-to-end logic ---
+
+    use crate::book::{Entry, PolyglotBook};
+
+    /// Encode a 4-char UCI move (no promotion, no castling) into a Polyglot
+    /// move word so a synthetic book can be hand-built from a UCI string.
+    fn encode_polyglot(uci: &str) -> u16 {
+        let b = uci.as_bytes();
+        let ff = (b[0] - b'a') as u16;
+        let fr = (b[1] - b'1') as u16;
+        let tf = (b[2] - b'a') as u16;
+        let tr = (b[3] - b'1') as u16;
+        let from = fr * 8 + ff;
+        let to = tr * 8 + tf;
+        (from << 6) | to
+    }
+
+    #[test]
+    fn pick_book_move_returns_legal_startpos_move() {
+        let board = board_from_position_line("position startpos").unwrap();
+        let key = crate::book::polyglot_key(&board.get_fen());
+        // Single-entry book: startpos -> e2e4.
+        let book = PolyglotBook {
+            entries: vec![Entry {
+                key,
+                move_raw: encode_polyglot("e2e4"),
+                weight: 100,
+                learn: 0,
+            }],
+        };
+        assert_eq!(pick_book_move(&board, &book, true), Some("e2e4".to_string()));
+    }
+
+    #[test]
+    fn pick_book_move_out_of_book_returns_none() {
+        let board = board_from_position_line("position startpos").unwrap();
+        // Book keyed to a different (bogus) position: startpos not present.
+        let book = PolyglotBook {
+            entries: vec![Entry {
+                key: 0xDEAD_BEEF_DEAD_BEEF,
+                move_raw: encode_polyglot("e2e4"),
+                weight: 100,
+                learn: 0,
+            }],
+        };
+        assert_eq!(pick_book_move(&board, &book, true), None);
+    }
+
+    #[test]
+    fn pick_book_move_rejects_illegal_decoded_move() {
+        let board = board_from_position_line("position startpos").unwrap();
+        let key = crate::book::polyglot_key(&board.get_fen());
+        // e2e5 is NOT a legal first move; the book move must be rejected and
+        // the engine falls back to searching (None).
+        let book = PolyglotBook {
+            entries: vec![Entry {
+                key,
+                move_raw: encode_polyglot("e2e5"),
+                weight: 100,
+                learn: 0,
+            }],
+        };
+        assert_eq!(pick_book_move(&board, &book, true), None);
+    }
+
+    #[test]
+    fn try_load_book_missing_is_none() {
+        assert!(try_load_book("/nonexistent/no-book-here.bin").is_none());
+    }
+
+    #[test]
+    fn book_path_candidates_relative_includes_exe_dir() {
+        // A relative path yields the path itself plus an executable-dir variant,
+        // so a GUI launching from an arbitrary cwd can still find a book placed
+        // beside the binary.
+        let cands = book_path_candidates("performance.bin");
+        assert_eq!(cands[0], std::path::PathBuf::from("performance.bin"));
+        assert!(
+            cands.len() >= 2,
+            "relative path should also probe the executable dir"
+        );
+        assert!(
+            cands[1].ends_with("performance.bin"),
+            "exe-dir candidate must target the same file name"
+        );
+    }
+
+    #[test]
+    fn book_path_candidates_absolute_is_single() {
+        let cands = book_path_candidates("/abs/path/book.bin");
+        assert_eq!(cands, vec![std::path::PathBuf::from("/abs/path/book.bin")]);
     }
 }
