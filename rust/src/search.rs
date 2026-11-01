@@ -428,8 +428,17 @@ impl<'a> Search<'a> {
                 }
                 if dpt == 1 {
                     self.best_move = alfarray[i];
-                    if u.abs() > 20000 {
-                        self.mate_score = u.abs();
+                    // Only a mate the engine is DELIVERING (positive score)
+                    // counts as `mate_score` and may short-circuit the search.
+                    // A negative mate score means the engine is being mated —
+                    // it must keep searching other root moves and deeper plies
+                    // to find the move that escapes or best delays mate, not
+                    // lock in the first losing line. (Bug fix: the old code used
+                    // `u.abs()`, so being mated set a positive mate_score and
+                    // broke iterative deepening instantly, returning a losing
+                    // move without any real search.)
+                    if u > 20000 {
+                        self.mate_score = u;
                     } else {
                         self.mate_score = 0;
                     }
@@ -461,9 +470,13 @@ impl<'a> Search<'a> {
                             self.nodes,
                             pv
                         );
-                        // Once a mate is found at the root, stop checking other root
-                        // moves to avoid wasting time.
-                        break;
+                        // Only stop examining other root moves when we have
+                        // found a mate WE deliver (u > 0). If `u` is a losing
+                        // mate, we must keep trying the remaining root moves —
+                        // another move may avoid or delay the mate.
+                        if u > 20000 {
+                            break;
+                        }
                     } else {
                         println!(
                             "info multipv 1 depth {} seldepth {} score cp {} nodes {} pv {}",
@@ -887,6 +900,86 @@ mod tests {
             s.root_moves_searched, 1,
             "expected search to return immediately after root move 1 found mate, but searched {} root moves",
             s.root_moves_searched
+        );
+    }
+
+    #[test]
+    fn losing_position_does_not_bail_early() {
+        // Regression (lichess game UGFiq0JJ, move 26): in a LOST position
+        // (Black has a forced mate), the engine used to set `mate_score` from
+        // `u.abs()` — so being mated looked like delivering mate — and bail out
+        // of iterative deepening after a shallow depth, returning a losing move
+        // instantly (it played 26.Kf3?? into Qg4#). The search must instead
+        // keep deepening and pick the most resistant move.
+        //
+        // This is the exact fatal position with White to move. We search to a
+        // fixed depth and assert the engine actually reached that depth (did
+        // not short-circuit) and did NOT report a positive mate_score (it is
+        // being mated, not delivering mate).
+        let mut b = Board::new();
+        b.setboard("r7/6qk/1Q2B3/p1pP1p2/2P1n2P/4P3/P4PK1/R4R2 w - - 2 26");
+        let mut s = Search::new(&mut b);
+        let mv = s.search_fixed_depth(5);
+        assert_eq!(
+            s.depth, 5,
+            "search bailed early at depth {} instead of reaching the requested depth 5 \
+             (losing-mate scores must not trigger break_if_mate_found)",
+            s.depth
+        );
+        assert_eq!(
+            s.mate_score, 0,
+            "engine is being mated here, so mate_score (a mate WE deliver) must be 0, got {}",
+            s.mate_score
+        );
+        // And it must examine more than one root move (not lock in the first
+        // losing line the way the inner root-loop break used to).
+        assert!(
+            s.root_moves_searched > 1,
+            "expected the engine to weigh multiple root moves in a lost position, searched {}",
+            s.root_moves_searched
+        );
+        // The returned move must be legal.
+        b.list_legal_moves();
+        let n = (b.legal_pointer + 1) as usize;
+        assert!(
+            b.legal_moves[..n].contains(&mv),
+            "bestmove {} not legal",
+            move2str(mv)
+        );
+    }
+
+    #[test]
+    fn losing_position_does_not_bail_early_black_to_move() {
+        // Same regression as `losing_position_does_not_bail_early`, but with the
+        // position vertically mirrored and colors swapped so BLACK is the side
+        // being mated. The mate handling is negamax (scores are from the
+        // side-to-move's perspective), so the fix must be color-symmetric:
+        // Black being mated must likewise keep deepening rather than bail.
+        let mut b = Board::new();
+        b.setboard("r4r2/p4pk1/4p3/2p1N2p/P1Pp1P2/1q2b3/6QK/R7 b - - 2 26");
+        let mut s = Search::new(&mut b);
+        let mv = s.search_fixed_depth(5);
+        assert_eq!(
+            s.depth, 5,
+            "black-to-move search bailed early at depth {} instead of depth 5",
+            s.depth
+        );
+        assert_eq!(
+            s.mate_score, 0,
+            "black is being mated, so mate_score (a mate WE deliver) must be 0, got {}",
+            s.mate_score
+        );
+        assert!(
+            s.root_moves_searched > 1,
+            "expected multiple root moves weighed in a lost position, searched {}",
+            s.root_moves_searched
+        );
+        b.list_legal_moves();
+        let n = (b.legal_pointer + 1) as usize;
+        assert!(
+            b.legal_moves[..n].contains(&mv),
+            "bestmove {} not legal",
+            move2str(mv)
         );
     }
 }
