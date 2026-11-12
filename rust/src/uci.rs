@@ -6,10 +6,13 @@
 //!   * unknown leading tokens are skipped and the rest of the line is parsed
 //!     ("fail silently"), e.g. "joho go depth 2" still runs the go;
 //!   * commands that don't apply are ignored (e.g. `stop` when not searching);
-//!   * every `go` eventually produces a `bestmove`.
+//!   * every `go` eventually produces a `bestmove`;
+//!   * `d` is a non-standard debug command printing the position and option values.
 //!
-//! The search runs on a background thread so `stop` and `quit` stay responsive
-//! while thinking; a shared `AtomicBool` is the stop signal.
+//! The search runs on a background thread so `stop` and `quit` stay responsive;
+//! a shared `AtomicBool` is the stop signal. With `setoption name Threads value N`
+//! (N > 1) that thread is the main searcher and N-1 silent Lazy SMP helper threads
+//! search the same position, communicating only through the shared lock-free TT.
 
 use crate::board::Board;
 use crate::book::{self, PolyglotBook};
@@ -113,7 +116,7 @@ pub fn run() {
                 }
             }
             "setoption" => {
-                // setoption name <id> [value <x>]. Recognised ids: UseTT,
+                // setoption name <id> [value <x>]. Recognised ids: UseTT, Threads,
                 // OwnBook, BookFile, BookBestMove. Unknown ids are ignored.
                 if let Some((name, value)) = parse_setoption(tokens) {
                     match name.as_str() {
@@ -150,6 +153,23 @@ pub fn run() {
                 // May arrive while searching; answer immediately without
                 // stopping the search (spec).
                 println!("readyok");
+                flush();
+            }
+            "d" => {
+                // Non-standard debug command: show the current position and
+                // the current option values (UCI itself has no way to read them).
+                println!("fen: {}", board.get_fen());
+                println!("searching: {}", searching.is_some());
+                println!("options:");
+                println!("  UseTT = {use_tt}");
+                println!("  Threads = {threads}");
+                println!("  OwnBook = {own_book}");
+                println!("  BookFile = {book_file}");
+                println!("  BookBestMove = {book_best}");
+                match &book {
+                    Some(b) => println!("book: loaded ({} entries)", b.len()),
+                    None => println!("book: not loaded"),
+                }
                 flush();
             }
             "ucinewgame" => {
@@ -201,7 +221,7 @@ pub fn run() {
 fn is_command(t: &str) -> bool {
     matches!(
         t,
-        "uci" | "setoption" | "isready" | "ucinewgame" | "position" | "go" | "stop" | "quit"
+        "uci" | "setoption" | "isready" | "ucinewgame" | "position" | "go" | "stop" | "quit" | "d"
     )
 }
 

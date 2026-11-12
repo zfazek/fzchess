@@ -1,16 +1,15 @@
 //! Transposition table, ported from the C++ `TranspositionTable`.
 //!
-//! A direct-mapped, fixed-size table keyed by Zobrist hash. The replacement
-//! scheme and the probe semantics match the C++ engine exactly: `probe` returns
-//! the stored score whenever the full key matches (it does not gate on depth or
-//! flag), and `store` replaces on an empty slot, a stale age, or a deeper-or-
-//! equal search.
+//! A direct-mapped, fixed-size table keyed by Zobrist hash, shareable between
+//! search threads (Lazy SMP): every slot is two atomic words and a probe is
+//! verified with `key ^ data`, so there are no locks and torn reads are misses.
+//! `store` replaces on an empty slot, a stale age, or a deeper-or-equal search.
 //!
-//! Note: the C++ Zobrist tables are seeded from `time()` (random per run), so
-//! the TT is already non-deterministic between C++ runs — yet the golden
-//! bestmoves are deterministic. That tells us the TT affects only node/info
-//! statistics, not the final bestmove, so the Rust TT need not reproduce C++
-//! values; it only needs to be internally consistent.
+//! Entries record the REMAINING search depth, a bound flag (exact / lower /
+//! upper) and the best move. The search uses them for score cutoffs (when the
+//! stored depth and bound allow it) and for hash-move ordering. Because of the
+//! cutoffs and thread timing, node counts and occasionally scores can differ
+//! slightly between runs when `Threads > 1`.
 
 /// Score flag for a stored entry. Matches C++ `TTFlag`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

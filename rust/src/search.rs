@@ -1,10 +1,16 @@
 //! Alpha-beta search core, ported from C++ `Chess::alfabeta` and its helpers.
 //!
-//! The search owns the transposition table and all per-search scratch state
-//! (node counter, killer moves, principal-variation lines, root move list),
-//! borrowing the `Board` mutably for the duration. This matches the ownership
-//! split we adopted during the port: the board holds position state, the search
-//! holds search state.
+//! Each `Search` owns its per-thread scratch state (node counter, killer moves,
+//! principal-variation lines, root move list), borrowing the `Board` mutably for
+//! the duration. This matches the ownership split we adopted during the port:
+//! the board holds position state, the search holds search state.
+//!
+//! Search state shared between threads (the lock-free transposition table, the
+//! summed node counter and the "main thread done" flag) lives in `Shared`.
+//! `run_smp` implements Lazy SMP: the UCI `Threads` option sets the number of
+//! threads; one main thread reports results and `Threads - 1` silent helpers
+//! search clones of the position at staggered depths, helping only through the
+//! shared TT (hash moves and score cutoffs).
 //!
 //! Scoring is negamax from the side-to-move's perspective. This implements the
 //! recursion, MVV-LVA + killer-move ordering, a mate-aware quiescence search at
