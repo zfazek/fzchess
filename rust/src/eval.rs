@@ -316,7 +316,7 @@ impl Board {
     /// the TT belongs to the search, not the board.
     pub fn evaluation(
         &mut self,
-        tt: &mut TranspositionTable,
+        tt: &TranspositionTable,
         tt_nodes: &mut u64,
         search_age: u8,
         e_legal_pointer: i32,

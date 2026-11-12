@@ -18,7 +18,7 @@ use crate::tt::{TranspositionTable, TtFlag};
 use crate::types::{MAX_LEGAL_MOVES, Move};
 use crate::util::get_ms;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 const MAX_PLY: usize = 128;
 /// Initial `value` floor in alfabeta (matches C++ -22767).
@@ -48,9 +48,38 @@ impl Default for Line {
     }
 }
 
+/// State shared by all search threads of one `go` (Lazy SMP): the lock-free
+/// transposition table, the summed node counter, and the "main thread is done"
+/// flag that tells helper threads to stop.
+pub struct Shared {
+    pub tt: TranspositionTable,
+    /// Nodes searched by all threads (each thread flushes its local count here
+    /// every ~1024 nodes).
+    pub total_nodes: AtomicU64,
+    /// Set by the main thread when its search finishes; helpers poll it.
+    pub done: AtomicBool,
+}
+
+impl Shared {
+    pub fn new(tt_enabled: bool) -> Self {
+        let tt = TranspositionTable::with_capacity(1 << 20);
+        tt.set_enabled(tt_enabled);
+        Shared {
+            tt,
+            total_nodes: AtomicU64::new(0),
+            done: AtomicBool::new(false),
+        }
+    }
+}
+
 pub struct Search<'a> {
     board: &'a mut Board,
-    tt: TranspositionTable,
+    shared: Arc<Shared>,
+    /// 0 = main thread (prints UCI output, owns time management); >0 = Lazy SMP
+    /// helper (silent, runs until the main thread is done).
+    helper_id: usize,
+    /// Portion of `nodes` already added to `shared.total_nodes`.
+    flushed_nodes: u64,
     pub tt_nodes: u64,
     pub nodes: u64,
     search_age: u8,
@@ -109,9 +138,22 @@ impl<'a> Search<'a> {
     /// Construct a search sharing an external stop flag (used by the UCI loop so
     /// `stop`/`quit` on the main thread can abort a search running on a worker).
     pub fn with_stop(board: &'a mut Board, stop: Arc<AtomicBool>) -> Self {
+        Self::with_shared(board, stop, Arc::new(Shared::new(true)), 0)
+    }
+
+    /// Construct a search that shares `shared` (TT, node counter, done flag)
+    /// with other threads. `helper_id` 0 is the main thread; >0 a silent helper.
+    pub fn with_shared(
+        board: &'a mut Board,
+        stop: Arc<AtomicBool>,
+        shared: Arc<Shared>,
+        helper_id: usize,
+    ) -> Self {
         Search {
             board,
-            tt: TranspositionTable::with_capacity(1 << 20),
+            shared,
+            helper_id,
+            flushed_nodes: 0,
             tt_nodes: 0,
             nodes: 0,
             search_age: 0,
@@ -140,7 +182,7 @@ impl<'a> Search<'a> {
     /// Disabling makes the search behave as if no TT existed — useful for
     /// measuring the TT's effect or for strictly reproducible/pure search.
     pub fn set_tt_enabled(&mut self, enabled: bool) {
-        self.tt.set_enabled(enabled);
+        self.shared.tt.set_enabled(enabled);
     }
 
     /// MVV-LVA static move ordering. Port of C++ `Chess::sort_legal_moves`:
@@ -225,6 +267,35 @@ impl<'a> Search<'a> {
         let mut node_best_move = 0i32;
         let alfa_orig = alfa; // original alpha, to classify the node (Exact vs upper-bound)
 
+        // TT score cutoff: if this position was already searched at least as
+        // deep, and the stored bound is usable in the current window, return it
+        // without searching. Skipped at the root and along the previous PV
+        // (keeps the reported/carried PV intact), and for mate-range scores
+        // (they are ply-dependent and not stored distance-adjusted).
+        if dpt > 1 && !on_pv {
+            if let Some(h) = self.shared.tt.probe_entry(key) {
+                let remaining = self.depth - dpt + 1;
+                if h.depth >= remaining && h.score.abs() <= 20000 {
+                    let usable = match h.flag {
+                        TtFlag::Exact => true,
+                        TtFlag::Beta => h.score >= beta,
+                        TtFlag::Alpha => h.score <= alfa,
+                    };
+                    if usable {
+                        self.tt_nodes += 1;
+                        // Leave a consistent (truncated) PV line for the parent
+                        // to copy: the moves leading to this node.
+                        let bl = &mut self.best_line[dpt as usize];
+                        let n = dpt as usize - 1;
+                        bl.moves[1..=n].copy_from_slice(&self.curr_line[1..=n]);
+                        bl.length = n;
+                        bl.value = h.score;
+                        return h.score;
+                    }
+                }
+            }
+        }
+
         self.board.list_legal_moves();
         if self.board.legal_pointer == -1 {
             // No legal move for the side to move: stalemate (draw) or mated (lost).
@@ -279,7 +350,7 @@ impl<'a> Search<'a> {
             // visit, try it first. This is the main fix for ordering decay at
             // depth — MVV-LVA/killers can't rank quiet moves, but the hash move
             // carries forward what the search already found best here.
-            let hash_move = self.tt.probe_move(key);
+            let hash_move = self.shared.tt.probe_move(key);
             if hash_move != 0 {
                 for i in 0..nbr_legal {
                     if alfarray[i] == hash_move {
@@ -446,6 +517,8 @@ impl<'a> Search<'a> {
                     // conversion matches C++: uu = (22001-u)/2 for u>0 else
                     // -(u+22001)/2, clamped to +/-1 if 0.
                     let line_len = self.best_line[dpt as usize].length;
+                    let quiet = self.helper_id != 0;
+                    let node_total = self.total_nodes();
                     let mut pv = String::new();
                     for b in 1..=line_len {
                         pv.push_str(&crate::util::move2str(
@@ -462,14 +535,16 @@ impl<'a> Search<'a> {
                         if uu == 0 {
                             uu = if u > 0 { 1 } else { -1 };
                         }
-                        println!(
-                            "info multipv 1 depth {} seldepth {} score mate {} nodes {} pv {}",
-                            self.depth.max(dpt),
-                            self.seldepth,
-                            uu,
-                            self.nodes,
-                            pv
-                        );
+                        if !quiet {
+                            println!(
+                                "info multipv 1 depth {} seldepth {} score mate {} nodes {} pv {}",
+                                self.depth.max(dpt),
+                                self.seldepth,
+                                uu,
+                                node_total,
+                                pv
+                            );
+                        }
                         // Only stop examining other root moves when we have
                         // found a mate WE deliver (u > 0). If `u` is a losing
                         // mate, we must keep trying the remaining root moves —
@@ -478,14 +553,16 @@ impl<'a> Search<'a> {
                             break;
                         }
                     } else {
-                        println!(
-                            "info multipv 1 depth {} seldepth {} score cp {} nodes {} pv {}",
-                            self.depth.max(dpt),
-                            self.seldepth,
-                            u,
-                            self.nodes,
-                            pv
-                        );
+                        if !quiet {
+                            println!(
+                                "info multipv 1 depth {} seldepth {} score cp {} nodes {} pv {}",
+                                self.depth.max(dpt),
+                                self.seldepth,
+                                u,
+                                node_total,
+                                pv
+                            );
+                        }
                     }
                 }
             }
@@ -511,9 +588,9 @@ impl<'a> Search<'a> {
                 // Store a fail-high (lower-bound) entry with the cutoff move as
                 // the hash move, so future visits try it first.
                 if !self.stop_search {
-                    self.tt.store(
+                    self.shared.tt.store(
                         key,
-                        dpt as i16,
+                        (self.depth - dpt + 1) as i16, // remaining depth
                         value as i16,
                         km,
                         TtFlag::Beta,
@@ -535,9 +612,9 @@ impl<'a> Search<'a> {
             } else {
                 TtFlag::Alpha
             };
-            self.tt.store(
+            self.shared.tt.store(
                 key,
-                dpt as i16,
+                (self.depth - dpt + 1) as i16, // remaining depth
                 value as i16,
                 node_best_move,
                 flag,
@@ -702,11 +779,35 @@ impl<'a> Search<'a> {
         caps.sort_by_key(|&mv| std::cmp::Reverse(score(mv)));
     }
 
+    /// Add this thread's not-yet-counted nodes to the shared total.
+    fn flush_nodes(&mut self) {
+        let delta = self.nodes - self.flushed_nodes;
+        if delta != 0 {
+            self.shared.total_nodes.fetch_add(delta, Ordering::Relaxed);
+            self.flushed_nodes = self.nodes;
+        }
+    }
+
+    /// Nodes searched so far by ALL threads.
+    fn total_nodes(&mut self) -> u64 {
+        self.flush_nodes();
+        self.shared.total_nodes.load(Ordering::Relaxed)
+    }
+
     /// Periodic abort check (called every ~1024 nodes). Sets `stop_search` if
     /// the external stop flag is set or the soft time limit has elapsed.
     fn checkup(&mut self) {
+        self.flush_nodes();
         if self.stop.load(Ordering::Relaxed) {
             self.stop_search = true;
+            return;
+        }
+        if self.helper_id != 0 {
+            // Helpers have no time limit of their own: they run until the main
+            // thread finishes.
+            if self.shared.done.load(Ordering::Relaxed) {
+                self.stop_search = true;
+            }
             return;
         }
         if self.max_time_ms != 0 && get_ms().saturating_sub(self.start_ms) >= self.max_time_ms {
@@ -727,6 +828,7 @@ impl<'a> Search<'a> {
             self.killer_moves[p] = [0, 0];
         }
         self.nodes = 0;
+        self.flushed_nodes = 0;
         self.tt_nodes = 0;
         self.stop_search = false;
         self.prev_pv = [0; MAX_PLY]; // no carried PV for a fresh search
@@ -744,10 +846,20 @@ impl<'a> Search<'a> {
         // C++ engine intended this but left it at 0 due to an uninitialised
         // field; the Rust engine computes it correctly).
         self.sm = self.board.sum_material(self.board.player_to_move);
-        println!("info string position {}", self.board.get_fen());
+        let helper = self.helper_id != 0;
+        if !helper {
+            println!("info string position {}", self.board.get_fen());
+        }
 
         let mut depth = 1;
         loop {
+            // Lazy SMP diversification: helpers skip some iterations so they
+            // work on different depths than the main thread (and each other),
+            // feeding the shared TT with entries the main thread reaches later.
+            if helper && depth > 1 && (depth + self.helper_id as i32) % 3 == 0 {
+                depth += 1;
+                continue;
+            }
             self.depth = depth;
             // seldepth is MEASURED: the deepest ply actually reached this
             // iteration (including quiescence). Start at the nominal depth and
@@ -773,11 +885,22 @@ impl<'a> Search<'a> {
                 self.prev_pv[ply] = self.best_line[1].moves[ply];
             }
 
+            if helper {
+                // Helpers never report; they stop at the requested depth (+1,
+                // to stay slightly ahead of the main thread) or when told to.
+                if depth > gui_depth || depth as usize >= MAX_PLY - 2 {
+                    break;
+                }
+                depth += 1;
+                continue;
+            }
+
             let elapsed = get_ms().saturating_sub(self.start_ms);
-            let nps = (self.nodes * 1000).checked_div(elapsed).unwrap_or(0);
+            let total = self.total_nodes();
+            let nps = (total * 1000).checked_div(elapsed).unwrap_or(0);
             println!(
                 "info depth {} seldepth {} time {} nodes {} nps {}",
-                depth, self.seldepth, elapsed, self.nodes, nps
+                depth, self.seldepth, elapsed, total, nps
             );
 
             if depth == 1 && self.nof_legal_root_moves == 1 {
@@ -792,6 +915,12 @@ impl<'a> Search<'a> {
             depth += 1;
         }
 
+        if helper {
+            self.flush_nodes();
+            return self.best_move;
+        }
+        // Main thread finished: tell helpers to stop.
+        self.shared.done.store(true, Ordering::Relaxed);
         println!("bestmove {}", crate::util::move2str(self.best_move));
         self.best_move
     }
@@ -809,10 +938,64 @@ impl<'a> Search<'a> {
     }
 }
 
+/// Run a Lazy SMP search: the calling thread is the main searcher (prints UCI
+/// output and prints `bestmove`); `threads - 1` silent helpers search clones of
+/// the position and share only the lock-free TT. Returns the main thread's move.
+pub fn run_smp(
+    board: &Board,
+    threads: usize,
+    stop: Arc<AtomicBool>,
+    tt_enabled: bool,
+    budget_ms: u64,
+    gui_depth: i32,
+) -> i32 {
+    let shared = Arc::new(Shared::new(tt_enabled));
+    let helpers: Vec<_> = (1..threads.max(1))
+        .map(|id| {
+            let mut b = board.clone();
+            let stop = Arc::clone(&stop);
+            let shared = Arc::clone(&shared);
+            std::thread::spawn(move || {
+                let mut s = Search::with_shared(&mut b, stop, shared, id);
+                s.make_move(gui_depth, false);
+            })
+        })
+        .collect();
+
+    let mut main_board = board.clone();
+    let mv = {
+        let mut s = Search::with_shared(&mut main_board, stop, Arc::clone(&shared), 0);
+        if budget_ms != 0 {
+            s.set_time_limit(budget_ms);
+        }
+        s.make_move(gui_depth, true)
+    };
+    // `make_move` already raised `done`; make sure even on early returns.
+    shared.done.store(true, Ordering::Relaxed);
+    for h in helpers {
+        let _ = h.join();
+    }
+    mv
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::util::move2str;
+
+    #[test]
+    fn smp_finds_mate_and_legal_move() {
+        let mut b = Board::new();
+        b.setboard("6k1/5ppp/8/8/8/8/8/R6K w - - 0 1");
+        let mv = run_smp(&b, 4, Arc::new(AtomicBool::new(false)), true, 0, 4);
+        assert_eq!(move2str(mv), "a1a8");
+        let b = Board::new();
+        let mv = run_smp(&b, 3, Arc::new(AtomicBool::new(false)), true, 0, 4);
+        let mut b2 = Board::new();
+        b2.list_legal_moves();
+        let n = (b2.legal_pointer + 1) as usize;
+        assert!(b2.legal_moves[..n].contains(&mv));
+    }
 
     #[test]
     fn finds_a_legal_move_from_startpos() {

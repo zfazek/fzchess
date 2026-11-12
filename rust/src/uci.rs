@@ -13,7 +13,6 @@
 
 use crate::board::Board;
 use crate::book::{self, PolyglotBook};
-use crate::search::Search;
 use crate::util::str2move;
 use std::io::{self, BufRead, Write};
 use std::sync::Arc;
@@ -50,6 +49,7 @@ pub fn run() {
     let stdin = io::stdin();
     let mut board = Board::new();
     let mut searching: Option<Searching> = None;
+    let mut threads: usize = 1; // search threads (Lazy SMP); setoption Threads
     let mut use_tt = true; // transposition table on by default; toggled via setoption UseTT
 
     // --- Opening book state ---
@@ -98,6 +98,7 @@ pub fn run() {
                 println!("id author Zoltan FAZEKAS");
                 // Custom option: toggle the transposition table (default on).
                 println!("option name UseTT type check default true");
+                println!("option name Threads type spin default 1 min 1 max 64");
                 // Opening book options.
                 println!("option name OwnBook type check default true");
                 println!("option name BookFile type string default {DEFAULT_BOOK_FILE}");
@@ -118,6 +119,11 @@ pub fn run() {
                     match name.as_str() {
                         n if n.eq_ignore_ascii_case("UseTT") => {
                             use_tt = value.eq_ignore_ascii_case("true");
+                        }
+                        n if n.eq_ignore_ascii_case("Threads") => {
+                            if let Ok(v) = value.trim().parse::<usize>() {
+                                threads = v.clamp(1, 64);
+                            }
                         }
                         n if n.eq_ignore_ascii_case("OwnBook") => {
                             own_book = value.eq_ignore_ascii_case("true");
@@ -177,7 +183,7 @@ pub fn run() {
                     flush();
                 } else {
                     let params = parse_go(tokens);
-                    searching = Some(start_search(&board, params, use_tt));
+                    searching = Some(start_search(&board, params, use_tt, threads));
                 }
             }
             "stop" => {
@@ -443,7 +449,7 @@ fn time_budget_ms(p: &GoParams, white_to_move: bool) -> u64 {
 }
 
 /// Spawn a background thread that searches `board` and prints `bestmove`.
-fn start_search(board: &Board, params: GoParams, use_tt: bool) -> Searching {
+fn start_search(board: &Board, params: GoParams, use_tt: bool, threads: usize) -> Searching {
     let stop = Arc::new(AtomicBool::new(false));
     let white_to_move = board.player_to_move == crate::types::WHITE;
     let budget = time_budget_ms(&params, white_to_move);
@@ -451,18 +457,22 @@ fn start_search(board: &Board, params: GoParams, use_tt: bool) -> Searching {
     let gui_depth = params.depth.unwrap_or(64);
 
     // The worker needs its own board; clone the current position.
-    let mut board_copy = board.clone();
+    let board_copy = board.clone();
     let stop_for_thread = Arc::clone(&stop);
 
     let (ready_tx, ready_rx) = mpsc::channel::<()>();
     let handle = thread::spawn(move || {
-        let mut search = Search::with_stop(&mut board_copy, stop_for_thread);
-        search.set_tt_enabled(use_tt);
-        if budget != 0 {
-            search.set_time_limit(budget);
-        }
         let _ = ready_tx.send(()); // signal that the search has started
-        search.make_move(gui_depth, true);
+        // Lazy SMP: this thread is the main searcher; `threads - 1` helpers
+        // share the TT with it.
+        crate::search::run_smp(
+            &board_copy,
+            threads,
+            stop_for_thread,
+            use_tt,
+            budget,
+            gui_depth,
+        );
     });
     // Ensure the thread has started before returning (keeps ordering sane).
     let _ = ready_rx.recv();
