@@ -31,7 +31,125 @@ const DOUBLE_PAWN: i32 = -30;
 const FRIENDLY_PAWN: i32 = 20;
 const PAWN_ADVANTAGE: i32 = 10;
 
+// --- Piece-Square Tables (centipawns, white's point of view) ---
+// Each table is laid out visually: first row is rank 8, last row is rank 1,
+// columns a..h. Black uses the vertically mirrored square. Values follow the
+// well-known "simplified evaluation function" tables.
+#[rustfmt::skip]
+const PST_PAWN: [i32; 64] = [
+     0,  0,  0,  0,  0,  0,  0,  0,
+    50, 50, 50, 50, 50, 50, 50, 50,
+    10, 10, 20, 30, 30, 20, 10, 10,
+     5,  5, 10, 25, 25, 10,  5,  5,
+     0,  0,  0, 20, 20,  0,  0,  0,
+     5, -5,-10,  0,  0,-10, -5,  5,
+     5, 10, 10,-20,-20, 10, 10,  5,
+     0,  0,  0,  0,  0,  0,  0,  0,
+];
+#[rustfmt::skip]
+const PST_KNIGHT: [i32; 64] = [
+   -50,-40,-30,-30,-30,-30,-40,-50,
+   -40,-20,  0,  0,  0,  0,-20,-40,
+   -30,  0, 10, 15, 15, 10,  0,-30,
+   -30,  5, 15, 20, 20, 15,  5,-30,
+   -30,  0, 15, 20, 20, 15,  0,-30,
+   -30,  5, 10, 15, 15, 10,  5,-30,
+   -40,-20,  0,  5,  5,  0,-20,-40,
+   -50,-40,-30,-30,-30,-30,-40,-50,
+];
+#[rustfmt::skip]
+const PST_BISHOP: [i32; 64] = [
+   -20,-10,-10,-10,-10,-10,-10,-20,
+   -10,  0,  0,  0,  0,  0,  0,-10,
+   -10,  0,  5, 10, 10,  5,  0,-10,
+   -10,  5,  5, 10, 10,  5,  5,-10,
+   -10,  0, 10, 10, 10, 10,  0,-10,
+   -10, 10, 10, 10, 10, 10, 10,-10,
+   -10,  5,  0,  0,  0,  0,  5,-10,
+   -20,-10,-10,-10,-10,-10,-10,-20,
+];
+#[rustfmt::skip]
+const PST_ROOK: [i32; 64] = [
+     0,  0,  0,  0,  0,  0,  0,  0,
+     5, 10, 10, 10, 10, 10, 10,  5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+     0,  0,  0,  5,  5,  0,  0,  0,
+];
+#[rustfmt::skip]
+const PST_QUEEN: [i32; 64] = [
+   -20,-10,-10, -5, -5,-10,-10,-20,
+   -10,  0,  0,  0,  0,  0,  0,-10,
+   -10,  0,  5,  5,  5,  5,  0,-10,
+    -5,  0,  5,  5,  5,  5,  0, -5,
+     0,  0,  5,  5,  5,  5,  0, -5,
+   -10,  5,  5,  5,  5,  5,  0,-10,
+   -10,  0,  5,  0,  0,  0,  0,-10,
+   -20,-10,-10, -5, -5,-10,-10,-20,
+];
+#[rustfmt::skip]
+const PST_KING_MG: [i32; 64] = [
+   -30,-40,-40,-50,-50,-40,-40,-30,
+   -30,-40,-40,-50,-50,-40,-40,-30,
+   -30,-40,-40,-50,-50,-40,-40,-30,
+   -30,-40,-40,-50,-50,-40,-40,-30,
+   -20,-30,-30,-40,-40,-30,-30,-20,
+   -10,-20,-20,-20,-20,-20,-20,-10,
+    20, 20,  0,  0,  0,  0, 20, 20,
+    20, 30, 10,  0,  0, 10, 30, 20,
+];
+#[rustfmt::skip]
+const PST_KING_EG: [i32; 64] = [
+   -50,-40,-30,-20,-20,-30,-40,-50,
+   -30,-20,-10,  0,  0,-10,-20,-30,
+   -30,-10, 20, 30, 30, 20,-10,-30,
+   -30,-10, 30, 40, 40, 30,-10,-30,
+   -30,-10, 30, 40, 40, 30,-10,-30,
+   -30,-10, 20, 30, 30, 20,-10,-30,
+   -30,-30,  0,  0,  0,  0,-30,-30,
+   -50,-30,-30,-30,-30,-30,-30,-50,
+];
+
 impl Board {
+    /// Piece-square score from White's point of view (positive = good for
+    /// White). Scans the 64 squares of the 10x12 mailbox. `sm` is the same
+    /// game-phase material used elsewhere in the eval: below
+    /// `END_GAME_THRESHOLD` the king uses the end-game table.
+    pub fn evaluation_pst_white(&self, sm: i32) -> i32 {
+        let king_tbl = if sm < END_GAME_THRESHOLD {
+            &PST_KING_EG
+        } else {
+            &PST_KING_MG
+        };
+
+        let mut e = 0;
+        for rank in 0..8usize {
+            for file in 0..8usize {
+                let f = self.board[(rank + 2) * 10 + file + 1];
+                if f <= 0 || f >= OFFBOARD {
+                    continue;
+                }
+                let white = (f & 128) == 0;
+                // Tables are stored rank 8 first; mirror vertically for black.
+                let ti = if white { (7 - rank) * 8 + file } else { rank * 8 + file };
+                let v = match f & 127 {
+                    PAWN => PST_PAWN[ti],
+                    KNIGHT => PST_KNIGHT[ti],
+                    BISHOP => PST_BISHOP[ti],
+                    ROOK => PST_ROOK[ti],
+                    QUEEN => PST_QUEEN[ti],
+                    KING => king_tbl[ti],
+                    _ => 0,
+                };
+                e += if white { v } else { -v };
+            }
+        }
+        e
+    }
+
     /// Material + king/pawn-structure evaluation from the side-to-move's
     /// perspective. Port of C++ `Eval::evaluation_material`.
     ///
@@ -51,6 +169,10 @@ impl Board {
         } else {
             -pm.material_wp
         };
+
+        // Piece-square tables, flipped to the side-to-move's perspective.
+        let pst = self.evaluation_pst_white(sm);
+        e += if ptm == WHITE { pst } else { -pst };
 
         // Pawn structure / advance terms, iterating only the pawn list.
         for k in 0..self.n_pawns {
@@ -183,9 +305,11 @@ impl Board {
     ///
     /// `e_legal_pointer` is the side-to-move's `legal_pointer` captured before
     /// this call (its move count), used for the mobility term. `sm` is the
-    /// end-game threshold material — the C++ engine passes a value that is
-    /// always 0 at runtime (its `sm` field is never assigned), so the search
-    /// passes 0 here to match the golden bestmoves. `tt_nodes` counts TT hits.
+    /// end-game threshold material. (The C++ engine never assigned its `sm`
+    /// field, so it was always 0 there; the Rust search computes it properly
+    /// in `Search::make_move`.) Note: this function is currently not called by
+    /// the Rust search, which uses `evaluation_material` directly.
+    /// `tt_nodes` counts TT hits.
     ///
     /// Takes `&mut self` because it re-lists legal moves and flips the side to
     /// move (restored before returning), and `&mut TranspositionTable` because
@@ -323,6 +447,16 @@ mod tests {
             let _ = b.evaluation_material(1, sm);
             let _ = b.evaluation_material(2, sm);
         }
+    }
+
+    #[test]
+    fn pst_startpos_symmetric_and_prefers_center() {
+        let mut b = Board::new();
+        assert_eq!(b.evaluation_pst_white(b.sum_material(WHITE)), 0);
+        // White knight b1 -> c3 improves White's PST score.
+        b.board[22] = EMPTY;
+        b.board[43] = KNIGHT;
+        assert!(b.evaluation_pst_white(b.sum_material(WHITE)) > 0);
     }
 
     #[test]
