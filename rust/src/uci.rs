@@ -122,14 +122,26 @@ pub fn run() {
                     match name.as_str() {
                         n if n.eq_ignore_ascii_case("UseTT") => {
                             use_tt = value.eq_ignore_ascii_case("true");
+                            println!(
+                                "info string UseTT {}",
+                                if use_tt { "enabled" } else { "disabled" }
+                            );
+                            flush();
                         }
                         n if n.eq_ignore_ascii_case("Threads") => {
                             if let Ok(v) = value.trim().parse::<usize>() {
                                 threads = v.clamp(1, 64);
+                                println!("info string Using {threads} thread{}", if threads == 1 { "" } else { "s" });
+                                flush();
                             }
                         }
                         n if n.eq_ignore_ascii_case("OwnBook") => {
                             own_book = value.eq_ignore_ascii_case("true");
+                            println!(
+                                "info string OwnBook {}",
+                                if own_book { "enabled" } else { "disabled" }
+                            );
+                            flush();
                             // Lazily load the current book file when enabling
                             // the book and nothing is loaded yet.
                             if own_book && book.is_none() {
@@ -138,9 +150,16 @@ pub fn run() {
                         }
                         n if n.eq_ignore_ascii_case("BookBestMove") => {
                             book_best = value.eq_ignore_ascii_case("true");
+                            println!(
+                                "info string BookBestMove {}",
+                                if book_best { "enabled" } else { "disabled" }
+                            );
+                            flush();
                         }
                         n if n.eq_ignore_ascii_case("BookFile") => {
                             book_file = value;
+                            println!("info string BookFile set to {book_file}");
+                            flush();
                             // Attempt to (re)load immediately so errors surface
                             // now; failure leaves the book unset.
                             book = try_load_book(&book_file);

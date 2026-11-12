@@ -10,3 +10,4 @@ gmon.out
 perf.data
 perf.data.*
 elo_match_*
+test_report_*

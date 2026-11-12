@@ -11,7 +11,7 @@ ENGINE_PATH = "./rust/target/release/fzchess"  # Change to your engine's filenam
 EPD_FILE_PATH = "bratko-kopec.epd"        # Your EPD file path
 EPD_FILE_PATH = "arasan2026.epd"        # Your EPD file path
 EPD_FILE_PATH = "wacnew.epd"        # Your EPD file path
-MOVETIME_MS = 1000                        # Time given per position in milliseconds (1 second)
+MOVETIME_MS = 500                        # Time given per position in milliseconds (1 second)
 # =======================================================
 
 class Tee:
@@ -100,6 +100,7 @@ def run_test_suite():
     # Initialize UCI state
     send_uci_command(engine, "uci", wait_for="uciok")
     send_uci_command(engine, "isready", wait_for="readyok")
+    send_uci_command(engine, "setoption name Threads value 3", wait_for="info")
 
     score = 0.0
     total_positions = 0
